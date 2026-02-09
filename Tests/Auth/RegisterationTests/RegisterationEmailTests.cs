@@ -18,7 +18,7 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
             PhoneNumber = "+1234567890",
             Address = "123 Test Street"
         };
-        var response = await Client.PostAsJsonAsync("/api/internal-auth/register", request);
+        var (response, _, _) = await RegisterationTestHelpers.PostRegisterAsync<object>(Client, request);
 
         await Task.Delay(500);
 
@@ -33,7 +33,7 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
 
         var sentEmail = emailMessages.Items[0];
         Assert.Equal(request.Email, sentEmail.To[0].Email);
-        Assert.Contains("confirm", sentEmail.Content.Headers["Subject"][0].ToLower());
+        Assert.Contains("confirm", sentEmail.Content.Headers["Subject"][0], StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
             Password = "TestPassword123"
         };
 
-        await Client.PostAsJsonAsync("/api/internal-auth/register", request);
+        await RegisterationTestHelpers.PostRegisterAsync<object>(Client, request);
         await Task.Delay(500);
 
         var messages = await Factory.MailhogClient!.SearchMessagesByRecipientAsync(request.Email);
@@ -56,8 +56,8 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
         var subject = email.Content.Headers["Subject"][0];
         
         Assert.NotNull(subject);
-        Assert.Contains("email", subject.ToLower());
-        Assert.Contains("confirm", subject.ToLower());
+        Assert.Contains("email", subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("confirm", subject, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
             Password = "TestPassword123"
         };
 
-        await Client.PostAsJsonAsync("/api/internal-auth/register", request);
+        await RegisterationTestHelpers.PostRegisterAsync<object>(Client, request);
         await Task.Delay(500);
 
         var messages = await Factory.MailhogClient!.SearchMessagesByRecipientAsync(request.Email);
@@ -82,7 +82,7 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
     }
 
     [Fact]
-    public async Task Register_EmailContainsConfirmationLink()
+    public async Task Register_EmailContainsConfirmationToken()
     {
         var request = new RegisterRequestDto
         {
@@ -91,7 +91,7 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
             Password = "TestPassword123"
         };
 
-        await Client.PostAsJsonAsync("/api/internal-auth/register", request);
+        await RegisterationTestHelpers.PostRegisterAsync<object>(Client, request);
         await Task.Delay(500);
 
         var messages = await Factory.MailhogClient!.SearchMessagesByRecipientAsync(request.Email);
@@ -99,7 +99,7 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
 
         var email = messages.Items[0];
         var body = email.Content.Body;
-        Assert.Contains("/api/internal-auth/confirm-email", body);
+        Assert.Contains("/api/v1/internal-auth/confirm-email", body);
         Assert.Contains("token=", body);
     }
 }

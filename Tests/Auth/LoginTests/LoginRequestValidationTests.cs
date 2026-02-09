@@ -6,7 +6,7 @@ using Xunit;
 
 namespace Tests.Auth;
 
-public class LoginDtoValidationTests(CustomWebApplicationFactory factory) : BaseIntegrationTest(factory)
+public class LoginRequestValidationTests(CustomWebApplicationFactory factory) : BaseIntegrationTest(factory)
 {
     [Fact]
     public async Task Login_WithEmptyUsernameOrEmail_Returns400BadRequest()

@@ -8,23 +8,28 @@ using System.Net;
 using Application.Interfaces;
 using Serilog;
 using Microsoft.AspNetCore.RateLimiting;
-using AspNetCoreRateLimit;
-using Swashbuckle.AspNetCore;
 using Asp.Versioning;
+using System.Threading.RateLimiting;
+using Application.Utils;
+using Application.Constants;
+using API.ActionFilters;
+using MassTransit;
 
 Env.Load("../../.env");  // Load .env from root
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Serilog
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
+var loggerConfig = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .WriteTo.Console()
-    .WriteTo.File("Logs/log-.txt", rollingInterval: RollingInterval.Day)
-    .WriteTo.Seq(Environment.GetEnvironmentVariable("SEQ_URL") ?? 
-        throw new InvalidOperationException("SEQ_URL environment variable is not set."))
-    .CreateLogger();
+    .WriteTo.File("Logs/log-.txt", rollingInterval: RollingInterval.Day);
+if (builder.Environment.IsDevelopment())
+{
+    loggerConfig = loggerConfig.WriteTo.Seq(Environment.GetEnvironmentVariable("SEQ_URL") ?? 
+        throw new InvalidOperationException("SEQ_URL environment variable is not set."));
+}
+Log.Logger = loggerConfig.CreateLogger();
 
 builder.Host.UseSerilog();
 
@@ -33,9 +38,6 @@ try
     Log.Information("Starting web host");
 
     builder.Services.AddControllers();
-
-    // Add Swagger/OpenAPI services
-    builder.Services.AddSwaggerGen();
 
     // Get connection string from environment variable with fallback for migrations
     var connectionString = Environment.GetEnvironmentVariable("CONNECTION_STRING") ?? 
@@ -101,16 +103,60 @@ try
     });
 
     // Register application services
-    builder.Services.AddScoped<AuthService>();
+    builder.Services.AddScoped<IAuthService, AuthService>();
 
-    // Add rate limiting
+    // 5. MassTransit Configuration
+    builder.Services.AddMassTransit(x =>
+    {
+        x.UsingRabbitMq((context, cfg) =>
+        {
+            var rabbitMqHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
+            var rabbitMqPort = Environment.GetEnvironmentVariable("RABBITMQ_PORT");
+            var username = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME") ?? "guest";
+            var password = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "guest";
+
+            cfg.Host(rabbitMqHost, ushort.TryParse(rabbitMqPort, out var port) ? port : (ushort)5672, "/", h =>
+            {
+                h.Username(username);
+                h.Password(password);
+            });
+
+            cfg.ConfigureEndpoints(context);
+        });
+    });
+
     builder.Services.AddRateLimiter(options =>
     {
-        options.AddFixedWindowLimiter("fixed", opt =>
+        // Define a global limiter
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
         {
-            opt.Window = TimeSpan.FromSeconds(10);
-            opt.PermitLimit = 5;
+            // Rate limit based on IP Address
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: partition => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 60,
+                    Window = TimeSpan.FromMinutes(1)
+                });
         });
+        
+        // Handle rate limit rejection
+        options.OnRejected = async (context, token) =>
+        {
+            context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.HttpContext.Response.ContentType = "application/json";
+            
+            var response = new FailApiResponse
+            {
+                StatusCode = StatusCodes.Status429TooManyRequests,
+                Message = "Too many requests. Please try again later.",
+                Errors = [],
+                ErrorCode = ApiErrorCodes.RateLimitExceededCode,
+                TraceId = context.HttpContext.TraceIdentifier
+            };
+            
+            await context.HttpContext.Response.WriteAsJsonAsync(response, token);
+        };
     });
 
     builder.Services.AddApiVersioning(options =>
@@ -126,20 +172,19 @@ try
         options.ApiVersionReader = new UrlSegmentApiVersionReader();
     });
 
+    builder.Services.AddTransient<IdempotencyFilter>();
+
     var app = builder.Build();
 
     app.UseSerilogRequestLogging();
 
-    app.UseIpRateLimiting();
+    // Only use rate limiter in non-test environments
+    if (!app.Environment.IsEnvironment("Testing"))
+    {
+        app.UseRateLimiter();
+    }
 
     app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
-
-    if (app.Environment.IsDevelopment())
-    {
-        app.UseSwagger();
-        app.UseSwaggerUI();
-        app.MapOpenApi();
-    }
 
     app.MapControllers();
 

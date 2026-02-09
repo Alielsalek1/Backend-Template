@@ -2,6 +2,7 @@ using System.Net;
 using Application.DTOs.InternalAuth;
 using Application.Utils;
 using Tests.Common;
+using TestsReusables.Auth; 
 using Xunit;
 
 namespace Tests.Auth;
@@ -28,16 +29,8 @@ public class LoginLogicTests(CustomWebApplicationFactory factory) : BaseIntegrat
     [Fact]
     public async Task Login_WithIncorrectPassword_Returns400BadRequest()
     {
-        // 1. Register a user
-        var registerRequest = new RegisterRequestDto
-        {
-            Username = "PasswordUser",
-            Email = "password@example.com",
-            Password = "CorrectPassword123"
-        };
-        await RegisterationTestHelpers.PostRegisterAsync<SuccessApiResponse<RegisterResponseDto>>(Client, registerRequest);
+        var (userId, correctPassword, username, email) = await AuthBackdoor.CreateVerifiedUserAsync("PasswordUser", "password@example.com", "CorrectPassword123");
 
-        // 2. Login with wrong password
         var loginRequest = new LoginRequestDto
         {
             UsernameOrEmail = "PasswordUser",

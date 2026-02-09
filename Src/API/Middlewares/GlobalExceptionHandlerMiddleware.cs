@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text.Json;
 using Application.Constants;
-using Application.DTOs.Misc;
 using Application.Utils;
 using Domain.Exceptions;
 
@@ -27,33 +26,33 @@ public class GlobalExceptionHandlerMiddleware(RequestDelegate next, ILogger<Glob
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
-        var response = new FailApiResponseDto();
+        var FailResponse = new FailApiResponse();
         if (exception is DomainException domainException)
         {
-            response = new FailApiResponseDto
+            FailResponse = new FailApiResponse
             {
+                StatusCode = (int)HttpStatusCode.InternalServerError,
                 Message = domainException.Message,
                 Errors = [],
-                ErrorCode = ErrorCodes.DomainErrorCode,
+                ErrorCode = ApiErrorCodes.DomainErrorCode,
                 TraceId = context.TraceIdentifier
-
             };
-            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
         }
         else
         {
-            response = new FailApiResponseDto
+            FailResponse = new FailApiResponse
             {
+                StatusCode = (int)HttpStatusCode.InternalServerError,
                 Message = "An unexpected error occurred. Please try again later.",
                 Errors = [],
-                ErrorCode = ErrorCodes.InternalServerErrorCode,
+                ErrorCode = ApiErrorCodes.InternalServerErrorCode,
                 TraceId = context.TraceIdentifier
             };
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
         }
-
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-        var json = JsonSerializer.Serialize(FailApiResponse.InternalServerError(response), options);
+        var json = JsonSerializer.Serialize(FailResponse, options);
         return context.Response.WriteAsync(json);
     }
 }

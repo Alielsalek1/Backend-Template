@@ -21,7 +21,7 @@ public class RegisterationLogicTests(CustomWebApplicationFactory factory) : Base
             Password = "Password123"
         };
 
-        await Client.PostAsJsonAsync("/api/internal-auth/register", firstRequest);
+        await RegisterationTestHelpers.PostRegisterAsync<object>(Client, firstRequest);
 
         var secondRequest = new RegisterRequestDto
         {
@@ -49,7 +49,7 @@ public class RegisterationLogicTests(CustomWebApplicationFactory factory) : Base
             Password = "Password123"
         };
 
-        await Client.PostAsJsonAsync("/api/internal-auth/register", firstRequest);
+        await RegisterationTestHelpers.PostRegisterAsync<object>(Client, firstRequest);
 
         var secondRequest = new RegisterRequestDto
         {

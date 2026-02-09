@@ -2,25 +2,27 @@ using Microsoft.AspNetCore.Mvc;
 using Application.DTOs.InternalAuth;
 using Application.Services;
 using Application.Utils;
-using Application.DTOs.Misc;
 using Asp.Versioning;
+using Application.Interfaces;
+using API.Extensions;
+using API.ActionFilters;
 
 namespace API.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/internal-auth")]
-public class InternalAuthController(AuthService authService) : BaseApiController
+public class InternalAuthController(IAuthService authService) : ControllerBase
 {
-    private readonly AuthService _authService = authService;
+    private readonly IAuthService _authService = authService;
     [HttpPost("register")]
-
+    [Idempotent]
     [ProducesResponseType(typeof(SuccessApiResponse<RegisterResponseDto>), StatusCodes.Status201Created)]
     public async Task<IActionResult> Register(
         [FromBody] RegisterRequestDto registerRequest,
         CancellationToken cancellationToken)
     {
         var result = await _authService.RegisterAsync(registerRequest, cancellationToken);
-        return SuccessResponse(result, StatusCodes.Status201Created, "Registration successful.");
+        return this.ToActionResult(result);
     }
 
     [HttpPost("login")]
@@ -28,7 +30,7 @@ public class InternalAuthController(AuthService authService) : BaseApiController
     public async Task<IActionResult> Login([FromBody] LoginRequestDto loginRequest, CancellationToken cancellationToken)
     {
         var result = await _authService.LoginAsync(loginRequest, cancellationToken);
-        return SuccessResponse(result, StatusCodes.Status200OK, "Login successful.");
+        return this.ToActionResult(result);
     }
 
     [HttpPost("confirm-email")]
@@ -36,15 +38,15 @@ public class InternalAuthController(AuthService authService) : BaseApiController
         [FromBody] ConfirmEmailRequestDto confirmEmailRequest,
         CancellationToken cancellationToken)
     {
-        await _authService.ConfirmEmailAsync(confirmEmailRequest, cancellationToken);
-        return SuccessResponse(new { }, StatusCodes.Status200OK, "Email confirmation successful.");
+       var result = await _authService.ConfirmEmailAsync(confirmEmailRequest, cancellationToken);
+       return this.ToActionResult(result);
     }
 
     [HttpPost("resend-confirmation-email")]
     public async Task<IActionResult> ResendConfirmationEmail([FromBody] ResendConfirmationEmailRequestDto resendConfirmationEmailRequest, CancellationToken cancellationToken)
     {
-        await _authService.ResendConfirmationEmailAsync(resendConfirmationEmailRequest, cancellationToken);
-        return SuccessResponse(new { }, StatusCodes.Status200OK, "Confirmation email resent successfully.");
+        var result = await _authService.ResendConfirmationEmailAsync(resendConfirmationEmailRequest, cancellationToken);
+        return this.ToActionResult(result);
     }
 
     // [HttpPost("forget-password")]

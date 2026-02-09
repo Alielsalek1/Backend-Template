@@ -6,7 +6,7 @@ using Xunit;
 
 namespace Tests.Auth;
 
-public class RegisterationDtoValidationTests(CustomWebApplicationFactory factory) : BaseIntegrationTest(factory)
+public class RegisterationRequestValidationTests(CustomWebApplicationFactory factory) : BaseIntegrationTest(factory)
 {
     [Fact]
     public async Task Register_WithInvalidUsername_Returns400BadRequest()
@@ -83,6 +83,21 @@ public class RegisterationDtoValidationTests(CustomWebApplicationFactory factory
         var (response, content, _) = await RegisterationTestHelpers.PostRegisterAsync<FailApiResponse>(Client, request);
 
         AssertBadRequestWithFieldError(response, content, "address");
+    }
+
+    [Fact]
+    public async Task Register_WithoutIdempotencyKey_Returns400BadRequest()
+    {
+        var request = new RegisterRequestDto
+        {
+            Username = "ValidUser123",
+            Email = "valid@example.com",
+            Password = "ValidPassword123"
+        };
+
+        var (response, content, _) = await RegisterationTestHelpers.PostRegisterAsync<FailApiResponse>(Client, request);
+
+        AssertBadRequestWithFieldError(response, content, "idempotency");
     }
 
     private static void AssertBadRequestWithFieldError(HttpResponseMessage response, FailApiResponse? content, string fieldName)

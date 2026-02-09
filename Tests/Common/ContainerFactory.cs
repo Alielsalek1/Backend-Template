@@ -2,6 +2,7 @@ using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Testcontainers.PostgreSql;
 using Testcontainers.Redis;
+using Testcontainers.RabbitMq;
 
 namespace Tests.Common;
 
@@ -38,6 +39,15 @@ public static class ContainerFactory
     public static RedisContainer CreateRedisContainer()
     {
         return new RedisBuilder("redis:7-alpine")
+            .Build();
+    }
+
+    /// <summary>
+    /// Creates a RabbitMQ container for use in tests.
+    /// </summary>
+    public static RabbitMqContainer CreateRabbitMqContainer()
+    {
+        return new RabbitMqBuilder("rabbitmq:3-management-alpine")
             .Build();
     }
 }
