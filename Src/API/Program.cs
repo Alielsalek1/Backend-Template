@@ -5,7 +5,6 @@ using DotNetEnv;
 using Application.Services;
 using System.Net.Mail;
 using System.Net;
-using Application.Interfaces;
 using Serilog;
 using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
@@ -14,6 +13,18 @@ using Application.Utils;
 using Application.Constants;
 using API.ActionFilters;
 using MassTransit;
+using Application.Services.Interfaces;
+using Application.Services.Implementations;
+using Application.Repositories.Interfaces;
+using Infrastructure.Repositories.Implementations;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using Application.Validators.InternalAuth;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Microsoft.AspNetCore.Authorization;
 
 Env.Load("../../.env");  // Load .env from root
 
@@ -37,7 +48,46 @@ try
 {
     Log.Information("Starting web host");
 
-    builder.Services.AddControllers();
+    // 0. JWT Configuration
+    var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? 
+        throw new InvalidOperationException("JWT_KEY environment variable is not set.");
+    var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? 
+        throw new InvalidOperationException("JWT_ISSUER environment variable is not set.");
+    var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? 
+        throw new InvalidOperationException("JWT_AUDIENCE environment variable is not set.");
+
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+    builder.Services.AddAuthorization();
+
+    builder.Services.AddControllers(options =>
+    {
+        options.Filters.Add<ValidationFilter>();
+    })
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.SuppressModelStateInvalidFilter = true;
+    });
+
+    builder.Services.AddFluentValidationAutoValidation();
+    builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestDtoValidator>();
 
     // Get connection string from environment variable with fallback for migrations
     var connectionString = Environment.GetEnvironmentVariable("CONNECTION_STRING") ?? 
@@ -73,23 +123,20 @@ try
             throw new InvalidOperationException("EMAIL_FROM environment variable is not set.") }
     };
 
-    var smtpClient = new SmtpClient
-    {
-        Host = emailConfig["Host"],
-        Port = int.Parse(emailConfig["Port"]),
-        EnableSsl = true,
-        DeliveryMethod = SmtpDeliveryMethod.Network,
-        UseDefaultCredentials = false,
-        Credentials = new NetworkCredential(
-            emailConfig["Username"], 
-            emailConfig["Password"]
-        )
-    };
-
     // 3. Register FluentEmail with these settings
     builder.Services
-        .AddFluentEmail(emailConfig["From"]) // The default sender
-        .AddSmtpSender(smtpClient);
+        .AddFluentEmail(emailConfig["From"])
+        .AddSmtpSender(new SmtpClient(emailConfig["Host"], int.Parse(emailConfig["Port"]))
+        {
+            EnableSsl = !bool.TryParse(Environment.GetEnvironmentVariable("EMAIL_ENABLE_SSL"), out var enableSsl) || enableSsl,
+            DeliveryMethod = SmtpDeliveryMethod.Network,
+            UseDefaultCredentials = false,
+            Credentials = new NetworkCredential(
+                emailConfig["Username"], 
+                emailConfig["Password"]
+            ),
+            Timeout = 20000 // 20 seconds timeout
+        });
     builder.Services.AddScoped<IEmailService, EmailService>();
 
     // 4. Redis Caching Configuration
@@ -103,7 +150,7 @@ try
     });
 
     // Register application services
-    builder.Services.AddScoped<IAuthService, AuthService>();
+    builder.Services.AddScoped<IInternalAuthService, InternalAuthService>();
 
     // 5. MassTransit Configuration
     builder.Services.AddMassTransit(x =>
@@ -173,6 +220,9 @@ try
     });
 
     builder.Services.AddTransient<IdempotencyFilter>();
+    builder.Services.AddScoped<IUserRepository, UserRepository>();
+    builder.Services.AddScoped<IUserConfirmationService, UserConfirmationService>();
+    builder.Services.AddScoped<ITokenProvider, JwtTokenProvider>();
 
     var app = builder.Build();
 
@@ -186,10 +236,15 @@ try
 
     app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
+    app.UseAuthentication();
+    app.UseAuthorization();
+
     app.MapControllers();
 
     // make a healthcheck endpoint
     app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
+    // make a healthcheck endpoints to test auth
+    app.MapGet("/health/auth", [Authorize] () => Results.Ok(new { status = "Authenticated" }));
 
     app.Run();
 }

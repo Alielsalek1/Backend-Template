@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Domain\MyBackendTemplate.Domain.csproj" />
+    <ProjectReference Include="..\Application\MyBackendTemplate.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

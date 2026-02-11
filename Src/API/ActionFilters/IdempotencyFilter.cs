@@ -4,26 +4,36 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Options;
 
 namespace API.ActionFilters;
 public class IdempotencyFilter : IAsyncActionFilter
 {
     private readonly IDistributedCache _cache;
     private readonly ILogger<IdempotencyFilter> _logger;
+    private readonly JsonSerializerOptions _jsonOptions;
 
-    public IdempotencyFilter(IDistributedCache cache, ILogger<IdempotencyFilter> logger)
+    public IdempotencyFilter(IDistributedCache cache, ILogger<IdempotencyFilter> logger, IOptions<JsonOptions> jsonOptions)
     {
         _cache = cache;
         _logger = logger;
+        _jsonOptions = jsonOptions.Value.JsonSerializerOptions;
     }
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         _logger.LogInformation("Executing IdempotencyFilter for {Path}", context.HttpContext.Request.Path);
         // 1. Check for Header
-        if (!context.HttpContext.Request.Headers.TryGetValue("Idempotency-Key", out var keyValues))
+        if (!context.HttpContext.Request.Headers.TryGetValue("Idempotency-Key", out var keyValues) || string.IsNullOrWhiteSpace(keyValues.ToString()))
         {
-            context.Result = new BadRequestObjectResult(new { error = "Idempotency-Key header is missing" });
+            var response = new Application.Utils.FailApiResponse
+            {
+                StatusCode = StatusCodes.Status400BadRequest,
+                Message = "Idempotency-Key header is missing or empty",
+                ErrorCode = Application.Constants.ApiErrorCodes.ValidationErrorCode,
+                TraceId = context.HttpContext.TraceIdentifier
+            };
+            context.Result = new BadRequestObjectResult(response);
             return;
         }
         
@@ -37,7 +47,7 @@ public class IdempotencyFilter : IAsyncActionFilter
         var cachedData = await _cache.GetStringAsync(cacheKey);
         if (!string.IsNullOrEmpty(cachedData))
         {
-            var record = JsonSerializer.Deserialize<IdempotencyRecord>(cachedData);
+            var record = JsonSerializer.Deserialize<IdempotencyRecord>(cachedData, _jsonOptions);
 
             // VALIDATION: Ensure the key isn't being reused for a different request
             if (record.RequestHash != requestHash)
@@ -70,7 +80,7 @@ public class IdempotencyFilter : IAsyncActionFilter
 
             await _cache.SetStringAsync(
                 cacheKey, 
-                JsonSerializer.Serialize(record), 
+                JsonSerializer.Serialize(record, _jsonOptions), 
                 new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24) }
             );
         }

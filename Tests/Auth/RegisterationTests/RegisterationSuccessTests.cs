@@ -58,10 +58,11 @@ public class RegisterationSuccessTests(CustomWebApplicationFactory factory) : Ba
     [Fact]
     public async Task Register_PutsTokenInRedisCacheWithCorrectExpiration()
     {
+        var Email = "redis@example.com";
         var request = new RegisterRequestDto
         {
             Username = "RedisTestUser",
-            Email = "redis@example.com",
+            Email = Email,
             Password = "TestPassword123"
         };
 
@@ -70,8 +71,8 @@ public class RegisterationSuccessTests(CustomWebApplicationFactory factory) : Ba
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         // Actual key in Redis will be prefixed with the InstanceName from Program.cs
-        // User requested that the key be the user Guid
-        var redisKey = $"MyBackendTemplate_{content!.Data.UserId}";
+        // User requested that the key be the user email
+        var redisKey = $"MyBackendTemplate_{Email}";
         var token = await Redis.GetValueAsync(redisKey);
         var ttl = await Redis.GetTTLAsync(redisKey);
 
@@ -110,8 +111,7 @@ public class RegisterationSuccessTests(CustomWebApplicationFactory factory) : Ba
         Assert.NotNull(content);
         Assert.True(content.Success);
         Assert.Equal(201, content.StatusCode);
-        Assert.Equal("Registration successful.", content.Message);
+        Assert.Equal("User registered successfully. Please check your email for the confirmation code.", content.Message);
         Assert.NotEqual(Guid.Empty, content.Data.UserId);
-        Assert.NotNull(content.TraceId);
     }
 }

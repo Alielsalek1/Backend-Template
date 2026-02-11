@@ -9,20 +9,20 @@ public static class RegisterationTestHelpers
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     public static async Task<(HttpResponseMessage Response, TResponse? Content, string Json)>
-        PostRegisterAsync<TResponse>(HttpClient client, RegisterRequestDto request, string? idempotencyKey = null)
+        PostRegisterAsync<TResponse>(HttpClient client, RegisterRequestDto request, string? idempotencyKey = "AUTO")
     {
         var message = new HttpRequestMessage(HttpMethod.Post, "/api/v1/internal-auth/register")
         {
             Content = JsonContent.Create(request)
         };
 
-        if (idempotencyKey != null)
-        {
-            message.Headers.Add("Idempotency-Key", idempotencyKey);
-        }
-        else
+        if (idempotencyKey == "AUTO")
         {
             message.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        }
+        else if (idempotencyKey != null)
+        {
+            message.Headers.Add("Idempotency-Key", idempotencyKey);
         }
 
         var response = await client.SendAsync(message);

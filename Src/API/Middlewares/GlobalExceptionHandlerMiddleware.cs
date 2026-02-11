@@ -38,6 +38,17 @@ public class GlobalExceptionHandlerMiddleware(RequestDelegate next, ILogger<Glob
                 TraceId = context.TraceIdentifier
             };
         }
+        else if (exception is DbException dbException)
+        {
+            FailResponse = new FailApiResponse
+            {
+                StatusCode = (int)HttpStatusCode.InternalServerError,
+                Message = dbException.Message,
+                Errors = [],
+                ErrorCode = ApiErrorCodes.DatabaseErrorCode,
+                TraceId = context.TraceIdentifier
+            };
+        }
         else
         {
             FailResponse = new FailApiResponse

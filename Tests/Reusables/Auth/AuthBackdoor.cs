@@ -1,5 +1,7 @@
 using System;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
 namespace TestsReusables.Auth;
@@ -59,13 +61,16 @@ public static class AuthBackdoor
 
     /// <summary>
     /// Helper to seed a confirmation token into the Redis cache used by the application.
-    /// Uses the `REDIS_CONNECTION_STRING` environment variable under the hood via the provided factory's helper.
+    /// Uses the app's IDistributedCache to ensure correct formatting (avoids WRONGTYPE errors).
     /// </summary>
-    public static async Task SeedConfirmationTokenAsync(Tests.Common.CustomWebApplicationFactory factory, Guid userId, string token, int ttlSeconds = 900)
+    public static async Task SeedConfirmationTokenAsync(Tests.Common.CustomWebApplicationFactory factory, string email, string token, int ttlSeconds = 900)
     {
-        // Key naming follows the test expectation: prefix may be applied by IDistributedCache InstanceName in Program, but tests expect `MyBackendTemplate_{userId}`
-        var key = $"MyBackendTemplate_{userId}";
-        if (factory.RedisProvider == null) throw new InvalidOperationException("Redis provider not available on factory.");
-        await factory.RedisProvider.SetValueAsync(key, token, ttlSeconds);
+        using var scope = factory.Services.CreateScope();
+        var cache = scope.ServiceProvider.GetRequiredService<IDistributedCache>();
+        
+        await cache.SetStringAsync(email, token, new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(ttlSeconds)
+        });
     }
 }

@@ -13,7 +13,7 @@ public class RegisterRequestDtoMapping : IRegister
         config.NewConfig<RegisterRequestDto, UserCreationParams>()
             .Map(dest => dest.Username, src => src.Username)
             .Map(dest => dest.Email, src => src.Email)
-            .Map(dest => dest.Role, src => Roles.User) // Default role
+            .Map(dest => dest.Role, src => Roles.User)
             .Map(dest => dest.Address, src => src.Address)
             .Map(dest => dest.PhoneNumber, src => src.PhoneNumber);
     }

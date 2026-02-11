@@ -9,13 +9,40 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 {
     public void Configure(EntityTypeBuilder<User> builder)
     {
-        builder.HasKey(u => u.Id);
-        builder.Property(u => u.Username).IsRequired().HasMaxLength(UserConstraints.UsernameMaxLength);
-        builder.Property(u => u.PasswordHash).IsRequired().HasMaxLength(UserConstraints.PasswordHashLength);
-        builder.Property(u => u.Email).IsRequired().HasMaxLength(UserConstraints.EmailMaxLength);
-        builder.Property(u => u.Role).IsRequired();
-        builder.Property(u => u.IsEmailVerified).IsRequired().HasDefaultValue(false);
-        builder.Property(u => u.Address).HasMaxLength(UserConstraints.AddressMaxLength).HasDefaultValue(string.Empty);
-        builder.Property(u => u.PhoneNumber).HasMaxLength(UserConstraints.PhoneNumberMaxLength).HasDefaultValue(string.Empty);
+        builder
+            .HasKey(u => u.Id);
+        builder
+            .HasIndex(u => u.Username)
+            .IsUnique();
+        builder
+            .HasIndex(u => u.Email)
+            .IsUnique();
+        builder
+            .Property(u => u.Username)
+            .IsRequired()
+            .HasMaxLength(UserConstraints.UsernameMaxLength);
+        builder
+            .Property(u => u.PasswordHash)
+            .IsRequired()
+            .HasMaxLength(UserConstraints.PasswordHashLength);
+        builder
+            .Property(u => u.Email)
+            .IsRequired()
+            .HasMaxLength(UserConstraints.EmailMaxLength);
+        builder
+            .Property(u => u.Role)
+            .IsRequired();
+        builder
+            .Property(u => u.IsEmailVerified)
+            .IsRequired()
+            .HasDefaultValue(false);
+        builder
+            .Property(u => u.Address)
+            .HasMaxLength(UserConstraints.AddressMaxLength)
+            .HasDefaultValue(string.Empty);
+        builder
+            .Property(u => u.PhoneNumber)
+            .HasMaxLength(UserConstraints.PhoneNumberMaxLength)
+            .HasDefaultValue(string.Empty);
     }
 }

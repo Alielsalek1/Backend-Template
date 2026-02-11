@@ -31,6 +31,17 @@ public static class TestEnvironment
     }
 
     /// <summary>
+    /// Sets JWT environment variables for testing.
+    /// </summary>
+    public static void SetJwtEnvironmentVariables()
+    {
+        Environment.SetEnvironmentVariable("JWT_KEY", "b56aDg1e6yEWr66EvMyf26JtOHr28i58rVrsjggrwaQ=");
+        Environment.SetEnvironmentVariable("JWT_ISSUER", "TestIssuer");
+        Environment.SetEnvironmentVariable("JWT_AUDIENCE", "TestAudience");
+        Environment.SetEnvironmentVariable("JWT_DURATION_IN_MINUTES", "60");
+    }
+
+    /// <summary>
     /// Sets environment variables so the app uses Mailhog for email delivery during tests.
     /// </summary>
     public static void SetEmailEnvironmentVariables(int mailhogSmtpPort)

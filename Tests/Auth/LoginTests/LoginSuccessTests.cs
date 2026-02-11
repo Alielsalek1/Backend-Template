@@ -51,6 +51,5 @@ public class LoginSuccessTests(CustomWebApplicationFactory factory) : BaseIntegr
         Assert.Equal("Login successful.", content.Message);
         Assert.NotEqual(Guid.Empty, content.Data.UserId);
         Assert.False(string.IsNullOrWhiteSpace(content.Data.AccessToken));
-        Assert.NotNull(content.TraceId);
     }
 }

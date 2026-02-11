@@ -95,7 +95,7 @@ public class RegisterationRequestValidationTests(CustomWebApplicationFactory fac
             Password = "ValidPassword123"
         };
 
-        var (response, content, _) = await RegisterationTestHelpers.PostRegisterAsync<FailApiResponse>(Client, request);
+        var (response, content, _) = await RegisterationTestHelpers.PostRegisterAsync<FailApiResponse>(Client, request, null);
 
         AssertBadRequestWithFieldError(response, content, "idempotency");
     }

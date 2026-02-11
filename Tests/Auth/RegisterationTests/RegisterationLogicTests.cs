@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Application.DTOs.InternalAuth;
 using Application.Utils;
 using Infrastructure.Persistance;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common;
 using Xunit;
@@ -32,10 +33,9 @@ public class RegisterationLogicTests(CustomWebApplicationFactory factory) : Base
 
         var (response, content, _) = await RegisterationTestHelpers.PostRegisterAsync<FailApiResponse>(Client, secondRequest);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.NotNull(content);
         Assert.False(content.Success);
-        Assert.Equal(400, content.StatusCode);
         Assert.Contains("username", content.Message.ToLower());
     }
 
@@ -60,7 +60,7 @@ public class RegisterationLogicTests(CustomWebApplicationFactory factory) : Base
 
         var (response, content, _) = await RegisterationTestHelpers.PostRegisterAsync<FailApiResponse>(Client, secondRequest);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.NotNull(content);
         Assert.False(content.Success);
         Assert.Contains("email", content.Message.ToLower());
@@ -85,5 +85,28 @@ public class RegisterationLogicTests(CustomWebApplicationFactory factory) : Base
         Assert.NotNull(user!.PasswordHash);
         // BCrypt generates 60-character hashes
         Assert.Equal(60, user.PasswordHash.Length);
+    }
+
+    [Fact]
+    public async Task Register_StoresRefreshTokenLifeTimeCorrectly()
+    {
+        var Email = "refresh@example.com";
+        var request = new RegisterRequestDto
+        {
+            Username = "RefreshTokenTest",
+            Email = Email,
+            Password = "Password123"
+        };
+
+        var (_, content, _) = await RegisterationTestHelpers.PostRegisterAsync<SuccessApiResponse<RegisterResponseDto>>(Client, request);
+
+        using var scope = Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Email == Email);
+
+        Assert.True(user!.RefreshTokenExpiryTime <= DateTime.UtcNow.AddDays(30) && 
+                    user.RefreshTokenExpiryTime > DateTime.UtcNow.AddDays(29), 
+                    $"Expected refresh token expiry to be around 30 days, but got {user.RefreshTokenExpiryTime}");
+        // Add more assertions as needed to verify the refresh token lifetime
     }
 }

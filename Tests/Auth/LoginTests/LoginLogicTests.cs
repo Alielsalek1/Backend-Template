@@ -20,14 +20,14 @@ public class LoginLogicTests(CustomWebApplicationFactory factory) : BaseIntegrat
 
         var (response, content, _) = await LoginTestHelpers.PostLoginAsync<FailApiResponse>(Client, request);
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.NotNull(content);
         Assert.False(content.Success);
-        Assert.Equal(404, content.StatusCode);
+        Assert.Equal(401, content.StatusCode);
     }
 
     [Fact]
-    public async Task Login_WithIncorrectPassword_Returns400BadRequest()
+    public async Task Login_WithIncorrectPassword_Returns401Unauthorized()
     {
         var (userId, correctPassword, username, email) = await AuthBackdoor.CreateVerifiedUserAsync("PasswordUser", "password@example.com", "CorrectPassword123");
 
@@ -39,9 +39,9 @@ public class LoginLogicTests(CustomWebApplicationFactory factory) : BaseIntegrat
 
         var (response, content, _) = await LoginTestHelpers.PostLoginAsync<FailApiResponse>(Client, loginRequest);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.NotNull(content);
         Assert.False(content.Success);
-        Assert.Equal(400, content.StatusCode);
+        Assert.Equal(401, content.StatusCode);
     }
 }

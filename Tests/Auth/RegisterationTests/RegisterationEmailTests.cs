@@ -1,4 +1,6 @@
 using System.Net;
+using System.Text;
+using System.Text.RegularExpressions;
 using Application.DTOs.InternalAuth;
 using Tests.Common;
 using Xunit;
@@ -7,6 +9,12 @@ namespace Tests.Auth;
 
 public class RegisterationEmailTests(CustomWebApplicationFactory factory) : BaseIntegrationTest(factory)
 {
+    private string GetDecodedBody(string base64Body)
+    {
+        var bytes = Convert.FromBase64String(base64Body);
+        return Encoding.UTF8.GetString(bytes);
+    }
+
     [Fact]
     public async Task Register_SendsConfirmationEmail()
     {
@@ -33,7 +41,7 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
 
         var sentEmail = emailMessages.Items[0];
         Assert.Equal(request.Email, sentEmail.To[0].Email);
-        Assert.Contains("confirm", sentEmail.Content.Headers["Subject"][0], StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Activate", sentEmail.Content.Headers["Subject"][0], StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -56,17 +64,17 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
         var subject = email.Content.Headers["Subject"][0];
         
         Assert.NotNull(subject);
-        Assert.Contains("email", subject, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("confirm", subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Verification", subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Code", subject, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task Register_EmailContainsUsername()
+    public async Task Register_EmailContainsWelcomeMessage()
     {
         var request = new RegisterRequestDto
         {
-            Username = "UsernameTestUser",
-            Email = "usernametest@example.com",
+            Username = "WelcomeTestUser",
+            Email = "welcometest@example.com",
             Password = "TestPassword123"
         };
 
@@ -77,17 +85,17 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
         Assert.Single(messages.Items);
 
         var email = messages.Items[0];
-        var body = email.Content.Body;
-        Assert.Contains(request.Username, body);
+        var body = GetDecodedBody(email.Content.Body);
+        Assert.Contains("Greetings, traveler!", body);
     }
 
     [Fact]
-    public async Task Register_EmailContainsConfirmationToken()
+    public async Task Register_EmailContainsConfirmationCode()
     {
         var request = new RegisterRequestDto
         {
-            Username = "LinkTestUser",
-            Email = "linktest@example.com",
+            Username = "CodeTestUser",
+            Email = "codetest@example.com",
             Password = "TestPassword123"
         };
 
@@ -98,8 +106,10 @@ public class RegisterationEmailTests(CustomWebApplicationFactory factory) : Base
         Assert.Single(messages.Items);
 
         var email = messages.Items[0];
-        var body = email.Content.Body;
-        Assert.Contains("/api/v1/internal-auth/confirm-email", body);
-        Assert.Contains("token=", body);
+        var body = GetDecodedBody(email.Content.Body);
+        
+        // Match a 6-digit code
+        var match = Regex.Match(body, @"\b\d{6}\b");
+        Assert.True(match.Success, "6-digit verification code not found in email body");
     }
 }

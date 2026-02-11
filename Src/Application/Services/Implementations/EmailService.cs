@@ -1,7 +1,7 @@
-using Application.Interfaces;
+using Application.Services.Interfaces;
 using FluentEmail.Core;
 
-namespace Application.Services;
+namespace Application.Services.Implementations;
 
 public class EmailService(IFluentEmail fluentEmail) : IEmailService
 {

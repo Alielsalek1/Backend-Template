@@ -22,6 +22,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
     {
         // hardcode SEQ_URL for testing purposes
         TestEnvironment.SetSeqUrl();
+        // hardcode JWT for testing purposes
+        TestEnvironment.SetJwtEnvironmentVariables();
 
         // Set up test environment and start orchestrator (owns containers + providers)
         TestEnvironment.Configure();

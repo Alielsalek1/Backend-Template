@@ -14,6 +14,8 @@ public class User
     public Roles Role { get; private set; }
     public string Address { get; private set; } = string.Empty;
     public string PhoneNumber { get; private set; } = string.Empty;
+    public Guid RefreshToken { get; set; } = Guid.NewGuid();
+    public DateTime RefreshTokenExpiryTime { get; set; }    
 
     // for EF Core
     private User() { }
