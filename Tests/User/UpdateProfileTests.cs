@@ -10,6 +10,7 @@ using Xunit;
 
 namespace Tests.User;
 
+[Collection("Integration Tests")]
 public class UpdateProfileTests(CustomWebApplicationFactory factory) : BaseIntegrationTest(factory)
 {
     [Fact]

@@ -29,6 +29,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
         TestEnvironment.Configure();
         _orchestrator = new ContainerOrchestrator();
         await _orchestrator.StartAsync();
+
+        // Create a minimal service provider for migrations
+        var services = new ServiceCollection();
+        _orchestrator.DatabaseProvider?.ReplaceDbContext(services);
+        // Add any other required services for migration here if needed
+        using var serviceProvider = services.BuildServiceProvider();
+        // Initialize respawner after migrations
+        await _orchestrator.InitializeRespawnerAsync(serviceProvider);
     }
 
     // Note: Database and Redis operations should be performed via the exposed providers

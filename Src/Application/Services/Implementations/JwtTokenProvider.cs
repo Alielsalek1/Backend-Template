@@ -13,7 +13,7 @@ public class JwtTokenProvider(IConfiguration config, ILogger<JwtTokenProvider> l
 {
     private readonly IConfiguration _config = config;
     private readonly ILogger<JwtTokenProvider> _logger = logger;
-
+    
     public string GenerateAccessToken(User user)
     {
         _logger.LogInformation("Generating access token for user: {UserId}, Email: {Email}", user.Id, user.Email);

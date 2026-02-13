@@ -34,11 +34,27 @@ public class ContainerOrchestrator : IAsyncDisposable
     {
         if (_databaseProvider == null) throw new InvalidOperationException("DatabaseProvider is not initialized.");
 
+        // Drop and recreate the public schema to ensure a clean state for migrations (handles container reuse)
+        var connString = _dbContainer!.GetConnectionString();
+        await using (var conn = new Npgsql.NpgsqlConnection(connString))
+        {
+            await conn.OpenAsync();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'public') THEN
+                    EXECUTE 'DROP SCHEMA public CASCADE';
+                END IF;
+                EXECUTE 'CREATE SCHEMA public';
+            END$$;";
+            await cmd.ExecuteNonQueryAsync();
+        }
+
         // Ensure EF migrations have been applied using the app's service provider
         await _databaseProvider.EnsureDatabaseMigratedAsync(services);
 
         // Create and initialize respawner now that tables exist
-        _respawnerProvider = new RespawnerProvider(_dbContainer!.GetConnectionString());
+        _respawnerProvider = new RespawnerProvider(connString);
         await _respawnerProvider.InitializeAsync();
     }
 

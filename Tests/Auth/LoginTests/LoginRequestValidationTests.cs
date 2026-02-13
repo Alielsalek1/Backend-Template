@@ -6,6 +6,7 @@ using Xunit;
 
 namespace Tests.Auth;
 
+[Collection("Integration Tests")]
 public class LoginRequestValidationTests(CustomWebApplicationFactory factory) : BaseIntegrationTest(factory)
 {
     [Fact]

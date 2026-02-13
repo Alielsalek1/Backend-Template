@@ -32,4 +32,19 @@ public static class ControllerBaseExtensions
 
         return controller.StatusCode(statusCode, failResponse);
     }
+
+    public static void AddRefreshTokenCookie(this ControllerBase controller, string refreshToken)
+    {
+        controller.Response.Cookies.Append(
+            "refreshToken",
+            refreshToken,
+            new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddDays(30)
+            }
+        );
+    }
 }

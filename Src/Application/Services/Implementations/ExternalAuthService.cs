@@ -31,58 +31,32 @@ public class ExternalAuthService(
     public async Task<Result<SuccessApiResponse<GoogleAuthResponseDto>>> GoogleLoginAsync(GoogleAuthRequestDto authRequest, CancellationToken ct)
     {
         _logger.LogInformation("Attempting Google login");
-        GoogleJsonWebSignature.Payload payload;
-        var _googleClientId = _configuration["Google:ClientId"];
-        try
+        
+        var payloadResult = await ValidateAndGetGooglePayloadAsync(authRequest.IdToken);
+        if (!payloadResult.IsSuccess)
         {
-            var settings = new GoogleJsonWebSignature.ValidationSettings
-            {
-                Audience = new[] { _googleClientId } 
-            };
-            
-            payload = await _googleAuthValidator.ValidateAsync(authRequest.IdToken, settings);
-            _logger.LogInformation("Google token validated for email: {Email}", payload.Email);
+            return Result<SuccessApiResponse<GoogleAuthResponseDto>>.Failure(payloadResult.Error);
         }
-        catch (InvalidJwtException ex)
-        {
-            _logger.LogWarning(ex, "Google token validation failed");
-            return Result<SuccessApiResponse<GoogleAuthResponseDto>>.Failure(ExternalAuthErrors.InvalidCredentials);
-        }
+        var payload = payloadResult.Data;
 
         var user = await _userRepository.GetUserByEmailAsync(payload.Email, ct);
-
-        if (user != null && user.AuthScheme != AuthScheme.External)
+        var validationResult = ValidateExternalUser(user, payload.Email);
+        if (!validationResult.IsSuccess)
         {
-            _logger.LogWarning("User with email {Email} exists but is not an external auth user", payload.Email);
-            return Result<SuccessApiResponse<GoogleAuthResponseDto>>.Failure(ExternalAuthErrors.EmailAlreadyInUse);
+            return Result<SuccessApiResponse<GoogleAuthResponseDto>>.Failure(validationResult.Error);
         }
 
         if (user is null)
         {
-            _logger.LogInformation("Creating new external user for email: {Email}", payload.Email);
-            UserCreationParams userCreationParams = new()
-            {
-                Email = payload.Email,
-                Username = payload.Email.Split('@')[0], // Simple username generation, you might want to improve this
-                PasswordHash = new string('0', 60), // Dummy hash of correct length
-                Role = Roles.User,
-                AuthScheme = AuthScheme.External
-            };
-            user = new User(userCreationParams)
-            {
-                IsEmailVerified = true // Since Google has already verified their email
-            };
-
-            await _userRepository.AddUserAsync(user, ct);
+            user = await CreateAndAddExternalUserAsync(payload, ct);
         }
         else
         {
             _logger.LogInformation("Existing user found for email: {Email}", payload.Email);
         }
 
-        // 4. Generate YOUR custom JWT and Refresh Token
-        _logger.LogInformation("Generating tokens for user: {UserId}", user.Id);
         var accessToken = _tokenProvider.GenerateAccessToken(user);
+        _logger.LogInformation("Google login successful for user {UserId}", user.Id);
 
         return Result<SuccessApiResponse<GoogleAuthResponseDto>>.Success(new SuccessApiResponse<GoogleAuthResponseDto>
         {
@@ -95,5 +69,55 @@ public class ExternalAuthService(
                 UserId = user.Id
             }
         });
+    }
+    private async Task<Result<GoogleJsonWebSignature.Payload>> ValidateAndGetGooglePayloadAsync(string idToken)
+    {
+        var googleClientId = _configuration["Google:ClientId"];
+        try
+        {
+            var settings = new GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = [googleClientId] 
+            };
+            
+            var payload = await _googleAuthValidator.ValidateAsync(idToken, settings);
+            _logger.LogInformation("Google token validated for email: {Email}", payload.Email);
+            return Result<GoogleJsonWebSignature.Payload>.Success(payload);
+        }
+        catch (InvalidJwtException ex)
+        {
+            _logger.LogWarning(ex, "Google token validation failed");
+            return Result<GoogleJsonWebSignature.Payload>.Failure(ExternalAuthErrors.InvalidCredentials);
+        }
+    }
+    private Result<SuccessApiResponse> ValidateExternalUser(User? user, string email)
+    {
+        if (user != null && user.AuthScheme != AuthScheme.External)
+        {
+            _logger.LogWarning("User with email {Email} exists but is not an external auth user", email);
+            return Result<SuccessApiResponse>.Failure(ExternalAuthErrors.EmailAlreadyInUse);
+        }
+        return Result<SuccessApiResponse>.Success(default!);
+    }
+    private async Task<User> CreateAndAddExternalUserAsync(GoogleJsonWebSignature.Payload payload, CancellationToken ct)
+    {
+        _logger.LogInformation("Creating new external user for email: {Email}", payload.Email);
+        
+        var userCreationParams = new UserCreationParams
+        {
+            Email = payload.Email,
+            Username = payload.Email.Split('@')[0],
+            PasswordHash = new string('0', 60),
+            Role = Roles.User,
+            AuthScheme = AuthScheme.External
+        };
+
+        var user = new User(userCreationParams)
+        {
+            IsEmailVerified = true
+        };
+
+        await _userRepository.AddUserAsync(user, ct);
+        return user;
     }
 }

@@ -17,6 +17,7 @@ public static class ContainerFactory
     public static PostgreSqlContainer CreatePostgreSqlContainer()
     {
         return new PostgreSqlBuilder("postgres:15-alpine")
+            .WithReuse(true)
             .Build();
     }
 
@@ -30,6 +31,7 @@ public static class ContainerFactory
             .WithPortBinding(8025, true)  // HTTP API port
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => 
                 r.ForPort(8025).ForPath("/api/v2/messages")))
+            .WithReuse(true)
             .Build();
     }
 
@@ -39,6 +41,7 @@ public static class ContainerFactory
     public static RedisContainer CreateRedisContainer()
     {
         return new RedisBuilder("redis:7-alpine")
+            .WithReuse(true)
             .Build();
     }
 
@@ -48,6 +51,7 @@ public static class ContainerFactory
     public static RabbitMqContainer CreateRabbitMqContainer()
     {
         return new RabbitMqBuilder("rabbitmq:3-management-alpine")
+            .WithReuse(true)
             .Build();
     }
 }

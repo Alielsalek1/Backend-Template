@@ -3,6 +3,7 @@ using Application.DTOs.User;
 using Application.Repositories.Interfaces;
 using Application.Services.Interfaces;
 using Application.Utils;
+using Domain.Models;
 using Domain.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -16,9 +17,31 @@ public class UserService(IUserRepository userRepo, ILogger<UserService> logger) 
 
     public async Task<Result<SuccessApiResponse>> UpdateProfileAsync(Guid userId, UpdateUserRequestDto request, CancellationToken ct)
     {
-        _logger.LogInformation("Attempting to update profile for user {UserId}", userId);
         var user = await _userRepository.GetUserByIdAsync(userId, ct);
+        var validationResult = await ValidateUpdateProfileRequestAsync(user, userId, request, ct);
+        if (!validationResult.IsSuccess)
+        {
+            return validationResult;
+        }
+        _logger.LogInformation("Updating profile for user {UserId}", userId);
 
+        user!.UpdateProfile(request.Address, request.PhoneNumber);
+        await _userRepository.UpdateUserAsync(user, ct);
+        _logger.LogInformation("Profile updated successfully for user {UserId}", userId);
+
+        return Result<SuccessApiResponse>.Success(new SuccessApiResponse
+        {
+            StatusCode = StatusCodes.Status200OK,
+            Message = "Profile updated successfully."
+        });
+    }
+
+    private async Task<Result<SuccessApiResponse>> ValidateUpdateProfileRequestAsync(
+        Domain.Models.User? user, 
+        Guid userId, 
+        UpdateUserRequestDto request, 
+        CancellationToken ct)
+    {
         if (user is null)
         {
             _logger.LogWarning("Profile update failed: User {UserId} not found", userId);
@@ -36,15 +59,6 @@ public class UserService(IUserRepository userRepo, ILogger<UserService> logger) 
             }
         }
 
-        user.UpdateProfile(request.Address, request.PhoneNumber);
-
-        await _userRepository.UpdateUserAsync(user, ct);
-        _logger.LogInformation("Profile updated successfully for user {UserId}", userId);
-
-        return Result<SuccessApiResponse>.Success(new SuccessApiResponse
-        {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Profile updated successfully."
-        });
+        return Result<SuccessApiResponse>.Success(default!);
     }
 }
