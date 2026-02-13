@@ -25,6 +25,13 @@ public class UserRepository(AppDbContext dbContext) : IUserRepository
         return await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
     }
 
+    public async Task UpdateUserAsync(User user, CancellationToken cancellationToken)
+    {
+        _dbContext.Users.Update(user);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+
     public async Task<User?> GetUserByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken)
     {
         return await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);

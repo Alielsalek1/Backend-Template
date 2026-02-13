@@ -6,36 +6,44 @@ using Application.Utils;
 using Domain.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Services.Implementations;
 
 public class UserConfirmationService(
     IUserRepository userRepository, 
     IDistributedCache cache, 
-    IEmailService emailService) 
+    IEmailService emailService,
+    ILogger<UserConfirmationService> logger) 
     : IUserConfirmationService
 {
     private readonly IUserRepository _userRepository = userRepository;
     private readonly IDistributedCache _cache = cache;
     private readonly IEmailService _emailService = emailService;
+    private readonly ILogger<UserConfirmationService> _logger = logger;
 
     public async Task<Result<SuccessApiResponse>> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequest, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Attempting to confirm email for {Email}", confirmEmailRequest.Email);
         if (await _userRepository.IsEmailInUseAsync(confirmEmailRequest.Email, cancellationToken) == false)
         {
+            _logger.LogWarning("Email confirmation failed: User with email {Email} not found", confirmEmailRequest.Email);
             return Result<SuccessApiResponse>.Failure(InternalAuthErrors.UserNotFound);
         }
         var storedToken = await _cache.GetStringAsync(confirmEmailRequest.Email, cancellationToken);
         if (confirmEmailRequest.Token != storedToken)
         {
+            _logger.LogWarning("Email confirmation failed: Invalid token for {Email}", confirmEmailRequest.Email);
             return Result<SuccessApiResponse>.Failure(InternalAuthErrors.InvalidToken);
         }
         // confirm the email and check if it was already confirmed
         if (await _userRepository.ConfirmEmailAsync(confirmEmailRequest.Email, cancellationToken) == false)
         {
+            _logger.LogWarning("Email confirmation failed: Email {Email} is already confirmed", confirmEmailRequest.Email);
             return Result<SuccessApiResponse>.Failure(InternalAuthErrors.EmailAlreadyConfirmed);
         }
         await _cache.RemoveAsync(confirmEmailRequest.Email, cancellationToken);
+        _logger.LogInformation("Email confirmed successfully for {Email}", confirmEmailRequest.Email);
         return Result<SuccessApiResponse>.Success(new SuccessApiResponse
         {
             StatusCode = StatusCodes.Status200OK,
@@ -46,19 +54,23 @@ public class UserConfirmationService(
     public async Task<Result<SuccessApiResponse>> ResendConfirmationEmailAsync(ResendConfirmationEmailRequestDto resendConfirmationEmailRequest, CancellationToken cancellationToken)
     {
         var email = resendConfirmationEmailRequest.Email;
+        _logger.LogInformation("Request to resend confirmation email for {Email}", email);
         // user didn't even register
         if (await _userRepository.IsEmailInUseAsync(email, cancellationToken) == false)
         {
+            _logger.LogWarning("Resend confirmation failed: User with email {Email} not found", email);
             return Result<SuccessApiResponse>.Failure(InternalAuthErrors.UserNotFound);
         }
         // check if the user is already registered
         if (await _userRepository.IsEmailConfirmedAsync(email, cancellationToken))
         {
+            _logger.LogWarning("Resend confirmation failed: Email {Email} is already confirmed", email);
             return Result<SuccessApiResponse>.Failure(InternalAuthErrors.EmailAlreadyConfirmed);
         }
 
         // Make the Confirmation Token which is a random 6 digits number
         var confirmationToken = new Random().Next(100000, 999999).ToString();
+        _logger.LogDebug("Generated new confirmation token for {Email}", email);
 
         // Store it in Redis with an expiry of 10 minutes (900 seconds in test)
         // Note: The key is just the user email because the InstanceName "MyBackendTemplate_" is added by the cache provider
@@ -89,6 +101,7 @@ public class UserConfirmationService(
 
         await _emailService.SendEmailAsync(email, "Activate Your Realm - Verification Code", emailBody, cancellationToken);
 
+        _logger.LogInformation("Confirmation email sent successfully to {Email}", email);
         return Result<SuccessApiResponse>.Success(new SuccessApiResponse
         {
             StatusCode = StatusCodes.Status200OK,

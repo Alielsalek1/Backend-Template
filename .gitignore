@@ -430,3 +430,4 @@ FodyWeavers.xsd
 # Project Specific Ignored Files
 remember.txt
 todo.txt
+.vscode

@@ -12,21 +12,21 @@ public static class AuthBackdoor
     /// Inserts a registered user into the test Postgres database with IsEmailVerified = true.
     /// Returns the created user's Guid and the plain password used.
     /// </summary>
-    public static async Task<(Guid UserId, string Password, string Username, string Email)> CreateVerifiedUserAsync(string? username = null, string? email = null, string? password = null)
+    public static async Task<(Guid UserId, string Password, string Username, string Email)> CreateVerifiedUserAsync(string? username = null, string? email = null, string? password = null, int authScheme = 0)
     {
-        return await CreateUserAsync(true, username, email, password);
+        return await CreateUserAsync(true, username, email, password, authScheme);
     }
 
     /// <summary>
     /// Inserts a registered user into the test Postgres database with IsEmailVerified = false.
     /// Returns the created user's Guid and the plain password used.
     /// </summary>
-    public static async Task<(Guid UserId, string Password, string Username, string Email)> CreateUnverifiedUserAsync(string? username = null, string? email = null, string? password = null)
+    public static async Task<(Guid UserId, string Password, string Username, string Email)> CreateUnverifiedUserAsync(string? username = null, string? email = null, string? password = null, int authScheme = 0)
     {
-        return await CreateUserAsync(false, username, email, password);
+        return await CreateUserAsync(false, username, email, password, authScheme);
     }
 
-    private static async Task<(Guid UserId, string Password, string Username, string Email)> CreateUserAsync(bool isEmailVerified, string? username, string? email, string? password)
+    private static async Task<(Guid UserId, string Password, string Username, string Email)> CreateUserAsync(bool isEmailVerified, string? username, string? email, string? password, int authScheme)
     {
         var connStr = Environment.GetEnvironmentVariable("CONNECTION_STRING");
         if (string.IsNullOrEmpty(connStr)) throw new InvalidOperationException("CONNECTION_STRING environment variable is not set.");
@@ -43,8 +43,8 @@ public static class AuthBackdoor
         await conn.OpenAsync();
 
         var cmd = conn.CreateCommand();
-        cmd.CommandText = @"INSERT INTO users (id, username, password_hash, email, is_email_verified, role, address, phone_number)
-                            VALUES (@id, @username, @password_hash, @email, @is_email_verified, @role, @address, @phone_number);";
+        cmd.CommandText = @"INSERT INTO users (id, username, password_hash, email, is_email_verified, role, address, phone_number, auth_scheme)
+                            VALUES (@id, @username, @password_hash, @email, @is_email_verified, @role, @address, @phone_number, @auth_scheme);";
         cmd.Parameters.AddWithValue("@id", userId);
         cmd.Parameters.AddWithValue("@username", uname);
         cmd.Parameters.AddWithValue("@password_hash", passwordHash);
@@ -53,6 +53,7 @@ public static class AuthBackdoor
         cmd.Parameters.AddWithValue("@role", 0);
         cmd.Parameters.AddWithValue("@address", string.Empty);
         cmd.Parameters.AddWithValue("@phone_number", string.Empty);
+        cmd.Parameters.AddWithValue("@auth_scheme", authScheme);
 
         await cmd.ExecuteNonQueryAsync();
 

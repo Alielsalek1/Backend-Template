@@ -4,16 +4,19 @@ using System.Text;
 using Application.Services.Interfaces;
 using Domain.Models;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Application.Services.Implementations;
 
-public class JwtTokenProvider(IConfiguration config) : ITokenProvider
+public class JwtTokenProvider(IConfiguration config, ILogger<JwtTokenProvider> logger) : ITokenProvider
 {
     private readonly IConfiguration _config = config;
+    private readonly ILogger<JwtTokenProvider> _logger = logger;
 
     public string GenerateAccessToken(User user)
     {
+        _logger.LogInformation("Generating access token for user: {UserId}, Email: {Email}", user.Id, user.Email);
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),

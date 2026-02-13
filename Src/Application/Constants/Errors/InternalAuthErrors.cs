@@ -1,5 +1,3 @@
-using Application.Constants;
-using Application.Constants.ApiErrors;
 using Application.Constants.ErrorCodes;
 using Microsoft.AspNetCore.Http;
 
@@ -85,5 +83,13 @@ public static class InternalAuthErrors
         [],
         string.Empty,
         StatusCodes.Status400BadRequest
+    );
+
+    public static readonly Error WrongAuthScheme = new(
+        InternalAuthErrorCodes.WrongAuthSchemeCode,
+        "User is registered with a different authentication scheme.",
+        [],
+        string.Empty,
+        StatusCodes.Status401Unauthorized
     );
 }

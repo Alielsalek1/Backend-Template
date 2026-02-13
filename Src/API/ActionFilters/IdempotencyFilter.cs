@@ -26,6 +26,7 @@ public class IdempotencyFilter : IAsyncActionFilter
         // 1. Check for Header
         if (!context.HttpContext.Request.Headers.TryGetValue("Idempotency-Key", out var keyValues) || string.IsNullOrWhiteSpace(keyValues.ToString()))
         {
+            _logger.LogWarning("Idempotency key missing for request to {Path}", context.HttpContext.Request.Path);
             var response = new Application.Utils.FailApiResponse
             {
                 StatusCode = StatusCodes.Status400BadRequest,
@@ -52,11 +53,12 @@ public class IdempotencyFilter : IAsyncActionFilter
             // VALIDATION: Ensure the key isn't being reused for a different request
             if (record.RequestHash != requestHash)
             {
+                _logger.LogWarning("Idempotency key {Key} reused for different request content at {Path}", key, context.HttpContext.Request.Path);
                 context.Result = new ConflictObjectResult(new { error = "Idempotency key reused for different request parameters" });
                 return;
             }
 
-            _logger.LogInformation("Idempotency key hit for {Path}", context.HttpContext.Request.Path);
+            _logger.LogInformation("Idempotency key {Key} hit for {Path}. Returning cached response.", key, context.HttpContext.Request.Path);
 
             // SUCCESS: Return cached response immediately
             context.Result = new ObjectResult(record.ResponseBody) { StatusCode = record.StatusCode };
@@ -71,6 +73,7 @@ public class IdempotencyFilter : IAsyncActionFilter
         // 5. Cache the Result (Only if successful)
         if (executedContext.Result is ObjectResult result && result.StatusCode >= 200 && result.StatusCode < 300)
         {
+            _logger.LogInformation("Caching successful response for idempotency key {Key}", key);
             var record = new IdempotencyRecord
             {
                 RequestHash = requestHash,

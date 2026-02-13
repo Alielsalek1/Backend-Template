@@ -10,6 +10,7 @@ using Application.Utils;
 using Application.Repositories.Interfaces;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Services.Implementations;
 
@@ -17,18 +18,26 @@ public class InternalAuthService(
         IUserRepository userRepository,
         IEmailService emailService,
         IDistributedCache cache,
-        ITokenProvider tokenProvider
+        ITokenProvider tokenProvider,
+        ILogger<InternalAuthService> logger
     ) : IInternalAuthService
 {
     private readonly IUserRepository _userRepository = userRepository;
     private readonly IEmailService _emailService = emailService;
     private readonly IDistributedCache _cache = cache;
     private readonly ITokenProvider _tokenProvider = tokenProvider;
+    private readonly ILogger<InternalAuthService> _logger = logger;
+
     public async Task<Result<SuccessApiResponse<RegisterResponseDto>>> RegisterAsync(RegisterRequestDto registerRequest, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Starting user registration for email: {Email}", registerRequest.Email);
         // map using Mapster
         var userCreationParams = registerRequest.Adapt<UserCreationParams>();
-        userCreationParams = userCreationParams with { PasswordHash = HashPassword(registerRequest.Password) };
+        userCreationParams = userCreationParams with 
+        { 
+            PasswordHash = HashPassword(registerRequest.Password),
+            AuthScheme = AuthScheme.Internal
+        };
         var user = new User(userCreationParams);
         user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(30);
         
@@ -101,26 +110,37 @@ public class InternalAuthService(
 
     public async Task<Result<SuccessApiResponse<LoginResponseDto>>> LoginAsync(LoginRequestDto loginRequest, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Processing login request for user: {UsernameOrEmail}", loginRequest.UsernameOrEmail);
         // check if user exists by email or username
         var userByEmailAsync = await _userRepository.GetUserByEmailAsync(loginRequest.UsernameOrEmail, cancellationToken);
         var userByUsernameAsync = await _userRepository.GetUserByUsernameAsync(loginRequest.UsernameOrEmail, cancellationToken);
         var user = userByEmailAsync ?? userByUsernameAsync;
         if (user == null)
         {
+            _logger.LogWarning("Login failed: User {UsernameOrEmail} not found", loginRequest.UsernameOrEmail);
             return Result<SuccessApiResponse<LoginResponseDto>>.Failure(InternalAuthErrors.InvalidCredentials);
+        }
+        // check if user has the correct auth scheme
+        if (user.AuthScheme != AuthScheme.Internal)
+        {
+            _logger.LogWarning("Login failed: User {UsernameOrEmail} is trying to login with wrong auth scheme: {AuthScheme}", loginRequest.UsernameOrEmail, user.AuthScheme);
+            return Result<SuccessApiResponse<LoginResponseDto>>.Failure(InternalAuthErrors.WrongAuthScheme);
         }
         // check if the user is email verified
         if (!user.IsEmailVerified)
         {
+            _logger.LogWarning("Login failed: Email not verified for user {UsernameOrEmail}", loginRequest.UsernameOrEmail);
             return Result<SuccessApiResponse<LoginResponseDto>>.Failure(InternalAuthErrors.EmailNotConfirmed);
         }
         // check if the password is correct
         if (!BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.PasswordHash))
         {
+            _logger.LogWarning("Login failed: Invalid password for user {UsernameOrEmail}", loginRequest.UsernameOrEmail);
             return Result<SuccessApiResponse<LoginResponseDto>>.Failure(InternalAuthErrors.InvalidCredentials);
         }
 
         // generate a JWT token for the user
+        _logger.LogInformation("User {UsernameOrEmail} logged in successfully", loginRequest.UsernameOrEmail);
         var accessToken = _tokenProvider.GenerateAccessToken(user);
 
         return Result<SuccessApiResponse<LoginResponseDto>>.Success(new SuccessApiResponse<LoginResponseDto>
@@ -138,9 +158,11 @@ public class InternalAuthService(
 
     public async Task<Result<SuccessApiResponse<RefreshTokenResponseDto>>> RefreshTokenAsync(Guid userId, Guid refreshToken, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Attempting token refresh for user {UserId}", userId);
         // Check for missing refresh token (Guid.Empty)
         if (refreshToken == Guid.Empty)
         {
+            _logger.LogWarning("Token refresh failed: Missing refresh token for user {UserId}", userId);
             return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Failure(InternalAuthErrors.MissingRefreshToken);
         }
 
@@ -148,16 +170,19 @@ public class InternalAuthService(
         var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
         if (user == null)
         {
+            _logger.LogWarning("Token refresh failed: User {UserId} not found", userId);
             return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Failure(InternalAuthErrors.UserNotFound);
         }
 
         // Validate the refresh token and check expiry
         if (user.RefreshToken != refreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
         {
+            _logger.LogWarning("Token refresh failed: Invalid or expired refresh token for user {UserId}", userId);
             return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Failure(InternalAuthErrors.InvalidRefreshToken);
         }
 
         // Generate a new access token
+        _logger.LogInformation("Token refreshed successfully for user {UserId}", userId);
         var newAccessToken = _tokenProvider.GenerateAccessToken(user);
 
         return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Success(new SuccessApiResponse<RefreshTokenResponseDto>
@@ -174,20 +199,24 @@ public class InternalAuthService(
     public async Task<Result<SuccessApiResponse>> ForgetPasswordAsync(ForgetPasswordRequestDto forgetPasswordRequest, CancellationToken cancellationToken)
     {
         var email = forgetPasswordRequest.Email;
+        _logger.LogInformation("Forget password request received for {Email}", email);
 
         // user didn't even register
         if (await _userRepository.IsEmailInUseAsync(email, cancellationToken) == false)
         {
+            _logger.LogWarning("Forget password failed: User {Email} not found", email);
             return Result<SuccessApiResponse>.Failure(InternalAuthErrors.UserNotFound);
         }
         // check if the user is verified
         if (await _userRepository.IsEmailConfirmedAsync(email, cancellationToken) == false)
         {
+            _logger.LogWarning("Forget password failed: Email {Email} not confirmed", email);
             return Result<SuccessApiResponse>.Failure(InternalAuthErrors.EmailNotConfirmed);
         }
 
         // Make the Confirmation Token which is a random 6 digits number
         var confirmationToken = new Random().Next(100000, 999999).ToString();
+        _logger.LogDebug("Generated reset token for {Email}", email);
 
         // Store it in Redis with an expiry of 10 minutes (900 seconds in test)
         // Note: The key is just the user email because the InstanceName "MyBackendTemplate_" is added by the cache provider
@@ -217,6 +246,7 @@ public class InternalAuthService(
             """;
 
         await _emailService.SendEmailAsync(email, "Reset Your Password - Recovery Code", emailBody, cancellationToken);
+        _logger.LogInformation("Password reset email sent to {Email}", email);
 
         return Result<SuccessApiResponse>.Success(new SuccessApiResponse
         {
@@ -226,17 +256,21 @@ public class InternalAuthService(
     }
     public async Task<Result<SuccessApiResponse>> ResetPasswordAsync(ResetPasswordRequestDto resetPasswordRequest, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Attempting password reset for {Email}", resetPasswordRequest.Email);
          if (await _userRepository.IsEmailInUseAsync(resetPasswordRequest.Email, cancellationToken) == false)
         {
+            _logger.LogWarning("Password reset failed: User {Email} not found", resetPasswordRequest.Email);
             return Result<SuccessApiResponse>.Failure(InternalAuthErrors.UserNotFound);
         }
         if (await _userRepository.IsEmailConfirmedAsync(resetPasswordRequest.Email, cancellationToken) == false)
         {
+            _logger.LogWarning("Password reset failed: Email {Email} not confirmed", resetPasswordRequest.Email);
             return Result<SuccessApiResponse>.Failure(InternalAuthErrors.EmailNotConfirmed);
         }
         var storedToken = await _cache.GetStringAsync(resetPasswordRequest.Email, cancellationToken);
         if (resetPasswordRequest.Token != storedToken)
         {
+            _logger.LogWarning("Password reset failed: Invalid token for {Email}", resetPasswordRequest.Email);
             return Result<SuccessApiResponse>.Failure(InternalAuthErrors.InvalidToken);
         }
         // hash the new passord
@@ -244,6 +278,7 @@ public class InternalAuthService(
         // reset it in the database
         await _userRepository.UpdatePasswordByEmailAsync(resetPasswordRequest.Email, newHashedPassword, cancellationToken);
         await _cache.RemoveAsync(resetPasswordRequest.Email, cancellationToken);
+        _logger.LogInformation("Password reset successfully for {Email}", resetPasswordRequest.Email);
         return Result<SuccessApiResponse>.Success(new SuccessApiResponse
         {
             StatusCode = StatusCodes.Status200OK,

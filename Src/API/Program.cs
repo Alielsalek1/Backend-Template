@@ -151,6 +151,7 @@ try
 
     // Register application services
     builder.Services.AddScoped<IInternalAuthService, InternalAuthService>();
+    builder.Services.AddScoped<IUserService, UserService>();
 
     // 5. MassTransit Configuration
     builder.Services.AddMassTransit(x =>
@@ -223,6 +224,8 @@ try
     builder.Services.AddScoped<IUserRepository, UserRepository>();
     builder.Services.AddScoped<IUserConfirmationService, UserConfirmationService>();
     builder.Services.AddScoped<ITokenProvider, JwtTokenProvider>();
+    builder.Services.AddScoped<IGoogleAuthValidator, GoogleAuthValidator>();
+    builder.Services.AddScoped<IExternalAuthService, ExternalAuthService>();
 
     var app = builder.Build();
 

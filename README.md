@@ -1,53 +1,64 @@
 # 🛡️ The Architect's Forge: Backend Odyssey
 
-Welcome, traveler. You have stumbled upon the **Architect's Forge**, a legendary blueprint for building high-performance, resilient, and scalable backend realms. This isn't just a template; it's a battle-tested vessel powered by .NET 9, forged in the fires of Clean Architecture.
+Welcome to the **Architect's Forge**, a high-performance, resilient backend template powered by .NET 9 and built with Clean Architecture. 
+
+This project is currently in its **Refactoring Phase**. Having successfully passed the first stage of TDD (Test-Driven Development) — where all integration tests pass with minimal viable code — the focus has shifted to code optimization, structuring, and enhancing system observability.
 
 ---
 
-## 🗺️ The World Map (Structure)
+## 🚀 Project Overview
 
-The forge is divided into four sacred layers, each with its own purpose and secrets:
+The forge is designed to provide a robust starting point for modern web applications. It implements core features with a heavy emphasis on reliability and idempotency:
 
-*   **⚔️ API (The Gatekeeper):** The frontline of your realm. It handles requests, enforces security, and manages the lifecycle of every interaction.
-*   **📜 Application (The Mastermind):** Where the logic of your world resides. Orchestrates services, defines interfaces, and maps the flow of data.
-*   **💎 Domain (The Soul):** The purest layer. Contains the fundamental rules, models, and exceptions that define your reality.
-*   **🧱 Infrastructure (The Foundation):** The heavy lifters. Connects your realm to external dimensions like databases, caches, and message brokers.
-
----
-
-## ⚡ Power Grid (Dependencies)
-
-To maintain a thriving civilization, the Forge utilizes a sophisticated network of external artifacts:
-
-| Service | Symbol | Role |
-| :--- | :--- | :--- |
-| **PostgreSQL** | 🐘 | The Eternal Archive (Persistent Storage) |
-| **Redis** | ⚡ | The Flash Memory (High-Speed Cache & Idempotency) |
-| **RabbitMQ** | 🐇 | The Messenger Guild (Asynchronous Communication) |
-| **Seq** | 👁️ | The All-Seeing Eye (Structured Logging) |
-| **MailHog** | 📧 | The Pigeon Post (Local Email Testing) |
+*   **🔐 Dual-Layer Authentication:** Integrated support for both internal (Email/Password) and external (Google OAuth2) authentication schemes.
+*   **🛡️ Strong Idempotency:** Custom action filters powered by Redis ensure that critical requests (like registration or updates) are resilient to network failures and accidental retries.
+*   **👤 User Management:** Full profile management systems including phone and address updates, email verification, and password recovery.
+*   **👁️ Total Observability:** Detailed structured logging across all services and middlewares, integrated with Seq for real-time analysis.
+*   **🧪 Absolute Integration:** A suite of 58+ integration tests that spin up real infrastructure (Postgres, Redis, RabbitMQ) to guarantee system integrity.
 
 ---
 
-## 🛡️ Combat Systems (Testing)
+## ⚡ Power Grid (Technology Stack)
 
-A realm is only as strong as its defenses. The Forge comes equipped with a high-fidelity **Simulation Chamber**:
+The Forge utilizes a sophisticated network of modern tools and frameworks:
 
-*   **🧪 Testcontainers:** Spawns real instances of PostgreSQL and Redis during testing. No mocks can hide the truth of integration.
-*   **⚔️ xUnit:** The standard-issue training manual for your automated warriors.
-*   **🛡️ Idempotency Shields:** Advanced filters that prevent duplicate commands from wreaking havoc, powered by Redis.
+### **Core Stack**
+*   **.NET 9 (C#):** The latest high-performance framework from Microsoft.
+*   **Entity Framework Core:** EF Core 9 with Npgsql for PostgreSQL interactions.
+*   **PostgreSQL:** The primary relational database for persistent storage.
+*   **Redis:** High-speed distributed cache for session management and idempotency locking.
+*   **RabbitMQ & MassTransit:** Enterprise-grade service bus for asynchronous event processing.
+
+### **Security & Identity**
+*   **JWT Bearer:** Standardized token-based authentication.
+*   **Google OAuth2:** External login integration.
+*   **BCrypt.Net:** Industrial-strength password hashing.
+*   **Asp.Versioning:** Semantic API versioning.
+
+### **Application Logic**
+*   **FluentValidation:** Expressive validation for incoming DTOs.
+*   **Mapster:** High-performance object mapping.
+*   **Serilog:** Structured logging with sinks for Console, File, and Seq.
+*   **FluentEmail:** Elegant email composition and delivery through SMTP.
+
+### **Testing & Quality**
+*   **xUnit:** Leading .NET testing framework.
+*   **Testcontainers:** Docker orchestration during test runs for real-world simulation.
+*   **Respawn:** Database cleanup between test scenarios.
+*   **MailHog:** Local SMTP testing server for email verification flows.
 
 ---
 
-## 🚀 Leveling Up (Getting Started)
-
-Ready to embark on your journey? Follow these scrolls:
+## 🛠️ Leveling Up (Getting Started)
 
 1.  **Summon the Artifacts:**
     ```bash
     docker compose up -d
     ```
 2.  **Ignite the Engine:**
+    ```bash
+    dotnet run --project Src/API
+    ```
     Open `MyBackendTemplate.sln` in VS Code or Visual Studio.
 3.  **Inspect the Chronicles:**
     Visit `http://localhost:8081` to view your realm's heartbeats in Seq.
