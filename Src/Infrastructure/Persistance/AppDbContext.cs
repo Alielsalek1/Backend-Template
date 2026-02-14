@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Domain.Models;
+using Domain.Models.User;
 
 namespace Infrastructure.Persistance;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)

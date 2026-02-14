@@ -1,23 +1,19 @@
 using Microsoft.AspNetCore.Mvc;
-using Application.DTOs.InternalAuth;
-using Application.Services;
+using Application.DTOs.Auth;
+using Application.Services.Interfaces;
+using Application.DTOs.User;
 using Application.Utils;
 using Asp.Versioning;
 using API.Extensions;
 using API.ActionFilters;
-using Application.Services.Interfaces;
 
 namespace API.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/internal-auth")]
-public class InternalAuthController(
-    IInternalAuthService authService, 
-    IUserConfirmationService accountConfirmationService
-    ) : ControllerBase
+public class InternalAuthController(IInternalAuthFacadeService authFacade) : ControllerBase
 {
-    private readonly IInternalAuthService _authService = authService;
-    private readonly IUserConfirmationService _accountConfirmationService = accountConfirmationService;
+    private readonly IInternalAuthFacadeService _authFacade = authFacade;
 
     [HttpPost("register")]
     [Idempotent]
@@ -26,7 +22,7 @@ public class InternalAuthController(
         [FromBody] RegisterRequestDto registerRequest,
         CancellationToken cancellationToken)
     {
-        var result = await _authService.RegisterAsync(registerRequest, cancellationToken);
+        var result = await _authFacade.RegisterAsync(registerRequest, cancellationToken);
         return this.ToActionResult(result);
     }
 
@@ -36,7 +32,7 @@ public class InternalAuthController(
         [FromBody] LoginRequestDto loginRequest, 
         CancellationToken cancellationToken)
     {
-        var result = await _authService.LoginAsync(loginRequest, cancellationToken);
+        var result = await _authFacade.LoginAsync(loginRequest, cancellationToken);
         if (result.IsSuccess)
         {
             var refreshToken = result.Data.Data.RefreshToken;
@@ -51,7 +47,7 @@ public class InternalAuthController(
         [FromBody] ConfirmEmailRequestDto confirmEmailRequest,
         CancellationToken cancellationToken)
     {
-       var result = await _accountConfirmationService.ConfirmEmailAsync(confirmEmailRequest, cancellationToken);
+       var result = await _authFacade.ConfirmEmailAsync(confirmEmailRequest, cancellationToken);
        return this.ToActionResult(result);
     }
 
@@ -61,7 +57,23 @@ public class InternalAuthController(
         [FromBody] ResendConfirmationEmailRequestDto resendConfirmationEmailRequest, 
         CancellationToken cancellationToken)
     {
-        var result = await _accountConfirmationService.ResendConfirmationEmailAsync(resendConfirmationEmailRequest, cancellationToken);
+        var result = await _authFacade.ResendConfirmationEmailAsync(resendConfirmationEmailRequest, cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("forget-password")]
+    [ProducesResponseType(typeof(SuccessApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ForgetPassword([FromBody] ForgetPasswordRequestDto forgetPasswordRequest, CancellationToken cancellationToken)
+    {
+        var result = await _authFacade.ForgetPasswordAsync(forgetPasswordRequest, cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("reset-password")]
+    [ProducesResponseType(typeof(SuccessApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto resetPasswordRequest, CancellationToken cancellationToken)
+    {
+        var result = await _authFacade.ResetPasswordAsync(resetPasswordRequest, cancellationToken);
         return this.ToActionResult(result);
     }
 
@@ -70,24 +82,7 @@ public class InternalAuthController(
     public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto refreshTokenRequest, CancellationToken cancellationToken)
     {
         var refreshToken = Request.Cookies["refreshToken"] ?? string.Empty;
-        _ = Guid.TryParse(refreshToken, out var parsedRefreshToken);
-        var result = await _authService.RefreshTokenAsync(refreshTokenRequest.UserId, parsedRefreshToken, cancellationToken);
-        return this.ToActionResult(result);
-    }
-
-    [HttpPost("forget-password")]
-    [ProducesResponseType(typeof(SuccessApiResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ForgetPassword([FromBody] ForgetPasswordRequestDto forgetPasswordRequest, CancellationToken cancellationToken)
-    {
-        var result = await _authService.ForgetPasswordAsync(forgetPasswordRequest, cancellationToken);
-        return this.ToActionResult(result);
-    }
-
-    [HttpPost("reset-password")]
-    [ProducesResponseType(typeof(SuccessApiResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto resetPasswordRequest, CancellationToken cancellationToken)
-    {
-        var result = await _authService.ResetPasswordAsync(resetPasswordRequest, cancellationToken);
+        var result = await _authFacade.RefreshTokenAsync(refreshTokenRequest, refreshToken, cancellationToken);
         return this.ToActionResult(result);
     }
 }

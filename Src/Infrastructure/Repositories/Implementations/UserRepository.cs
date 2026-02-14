@@ -3,6 +3,7 @@ using Infrastructure.Persistance;
 using Microsoft.EntityFrameworkCore;
 using Application.Repositories.Interfaces;
 using Domain.Exceptions;
+using Domain.Models.User;
 
 namespace Infrastructure.Repositories.Implementations;
 
@@ -73,8 +74,8 @@ public class UserRepository(AppDbContext dbContext) : IUserRepository
 
     public async Task<bool> IsEmailConfirmedAsync(string email, CancellationToken cancellationToken)
     {
-        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email, cancellationToken) ?? throw new DbException("User not found");
-        return user.IsEmailVerified;
+        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+        return user?.IsEmailVerified ?? false;
     }
     public async Task<bool> UpdatePasswordByEmailAsync(string email, string newPasswordHash, CancellationToken cancellationToken)
     {

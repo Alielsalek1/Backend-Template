@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Domain.Shared;
 using Application.Utils;
+using System.Security.Claims;
+using Application.Constants.ApiErrors;
 
 namespace API.Extensions;
 
@@ -46,5 +48,23 @@ public static class ControllerBaseExtensions
                 Expires = DateTimeOffset.UtcNow.AddDays(30)
             }
         );
+    }
+
+    public static Result<Guid> GetAuthenticatedUserId(this ControllerBase controller)
+    {
+        var userIdClaim = controller.User.FindFirst(ClaimTypes.NameIdentifier) ?? controller.User.FindFirst("sub");
+        
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Result<Guid>.Failure(new Error(
+                "AUTH_001",
+                "User ID not found in token claims or invalid format.",
+                [],
+                string.Empty,
+                StatusCodes.Status401Unauthorized
+            ));
+        }
+        
+        return Result<Guid>.Success(userId);
     }
 }

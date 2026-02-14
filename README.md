@@ -67,8 +67,53 @@ The Forge utilizes a sophisticated network of modern tools and frameworks:
 
 ---
 
+## 📐 Architecture & Design
+
+This project follows **Clean Architecture** principles with strict dependency flow inward toward the domain layer:
+
+```
+API (Controllers, Middleware) 
+  ↓ depends on
+Application (Services, DTOs, Validators) 
+  ↓ depends on
+Domain (Entities, Business Rules)
+  ↑ implemented by
+Infrastructure (Repositories, DbContext)
+```
+
+### Key Architectural Patterns:
+- **Result Pattern:** Explicit error handling without exceptions for expected failures
+- **Repository Pattern:** Data access abstraction with EF Core implementation
+- **Dependency Injection Facade:** Clean, organized service registration per layer
+- **Idempotency Filter:** Redis-backed request deduplication for critical operations
+- **Extension Methods:** Reusable controller logic (user ID extraction, cookie management)
+
+### Code Quality & Security:
+- **58 Integration Tests** with Testcontainers (100% pass rate)
+- **Multi-layered DoS Protection:** Kestrel limits, rate limiting, request size constraints
+- **Structured Logging:** Serilog with Seq integration for observability
+- **Environment Variable Validation:** Fail-fast startup with consolidated error reporting
+- **JWT Authentication:** Stateless, horizontally scalable auth with refresh token rotation
+
+---
+
+## 📜 Documentation
+
+### Technical Deep Dives:
+- **[TECHNOLOGIES.md](./TECHNOLOGIES.md)** - Detailed technology explanations and usage patterns
+- **[ADR-001](./docs/adr/001-backend-architecture-and-technology-stack.md)** - Comprehensive architectural decisions and rationale
+- **[DOCKER_SETUP.md](./DOCKER_SETUP.md)** - Container infrastructure setup guide
+
+### Quick Reference:
+- **[todo.txt](./todo.txt)** - Current work items and backlog
+- **[remember.txt](./remember.txt)** - Important implementation notes and gotchas
+
+---
+
 ## 📜 Epic Chronicles
 
 To dive deeper into the ancient technology used in this forge, read the [**TECHNOLOGIES.md**](./TECHNOLOGIES.md) manuscript.
+
+For architectural decisions and comprehensive design rationale, consult the [**Architecture Decision Records**](./docs/adr/).
 
 *May your latencies be low and your uptimes eternal.*
