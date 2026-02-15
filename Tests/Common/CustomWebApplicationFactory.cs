@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Xunit;
 using Tests.Common.TestContainerDependencies;
 using Tests.MailHog;
+using Application.Services.Interfaces;
 
 namespace Tests.Common;
 
@@ -59,6 +60,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
         builder.UseEnvironment("Testing");
         builder.ConfigureTestServices(services =>
         {
+            // Replace IGoogleAuthValidator with test implementation
+            var googleAuthValidatorDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IGoogleAuthValidator));
+            if (googleAuthValidatorDescriptor != null)
+            {
+                services.Remove(googleAuthValidatorDescriptor);
+            }
+            services.AddScoped<IGoogleAuthValidator, TestGoogleAuthValidator>();
+
             // allow ContainerOrchestrator's DatabaseProvider to replace DbContext registrations
             if (_orchestrator?.DatabaseProvider != null)
             {

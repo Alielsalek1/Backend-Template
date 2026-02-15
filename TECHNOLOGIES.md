@@ -190,6 +190,8 @@ options.MultipartBodyLengthLimit = 10 * 1024 * 1024; // 10 MB uploads
 ### **Authentication & Authorization**
 - **JWT Bearer Tokens:** Stateless authentication with access/refresh token pair
 - **Google OAuth2:** External authentication provider integration
+- **Guest Access:** Immediate anonymous session support via idempotency-safe guest login
+- **Account Promotion:** Seamless transition from Guest to Registered user (Internal or Google)
 - **BCrypt Password Hashing:** Work factor 11, salted per-password
 - **Refresh Token Rotation:** Single-use refresh tokens with blacklist support
 

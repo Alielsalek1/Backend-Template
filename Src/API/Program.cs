@@ -58,9 +58,23 @@ try
     builder.Services.AddApplication(emailConfig, redisConnectionString, rabbitMqHost, rabbitMqPort, rabbitMqUsername, rabbitMqPassword);
     builder.Services.AddApiLayer(jwtKey, jwtIssuer, jwtAudience, builder.Environment.IsDevelopment());
 
+    // testing purposes only
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowAll", policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+    });
+
     var app = builder.Build();
 
     app.UseSerilogRequestLogging();
+
+    // testing purposes only
+    app.UseCors("AllowAll");
 
     // Enable Swagger UI only in development mode
     if (app.Environment.IsDevelopment())

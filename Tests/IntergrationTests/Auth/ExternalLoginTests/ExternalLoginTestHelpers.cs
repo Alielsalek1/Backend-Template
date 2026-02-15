@@ -11,7 +11,7 @@ public static class ExternalLoginTestHelpers
     public static async Task<(HttpResponseMessage Response, TResponse? Content, string Json)>
         PostGoogleLoginAsync<TResponse>(HttpClient client, GoogleAuthRequestDto request)
     {
-        var response = await client.PostAsJsonAsync("/api/v1/external-auth/google-login", request);
+        var response = await client.PostAsJsonAsync("/api/v1/external-auth/login/google", request);
         var json = await response.Content.ReadAsStringAsync();
         var content = JsonSerializer.Deserialize<TResponse>(json, JsonOptions);
         return (response, content, json);

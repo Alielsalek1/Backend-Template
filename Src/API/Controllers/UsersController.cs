@@ -12,17 +12,6 @@ namespace API.Controllers;
 
 /// <summary>
 /// User Profile Controller
-/// 
-/// Manages authenticated user profile operations including viewing and updating profile information.
-/// All endpoints require valid JWT access token in Authorization header.
-/// 
-/// **Authentication Required:** Bearer JWT Token (obtained from /internal-auth/login or /external-auth/google-login)
-/// 
-/// **Key Features:**
-/// - View authenticated user's profile
-/// - Update user profile information (email, phone, address)
-/// - Idempotent profile updates with deduplication
-/// - Real-time profile synchronization
 /// </summary>
 [ApiController]
 [ApiVersion("1.0")]

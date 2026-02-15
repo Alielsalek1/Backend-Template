@@ -9,19 +9,20 @@ using System.Threading.Tasks;
 namespace Application.Services.Implementations;
 
 public class InternalAuthFacadeService(
-    IInternalAuthService internalAuthService,
+    IInternalAccountService internalAuthService,
     IUserConfirmationService userConfirmationService,
-    IPasswordResetService passwordResetService) : IInternalAuthFacadeService
+    IPasswordResetService passwordResetService,
+    IInternalSessionService internalIdentityService) : IInternalAuthFacadeService
 {
-    private readonly IInternalAuthService _internalAuthService = internalAuthService;
+    private readonly IInternalAccountService _internalAuthService = internalAuthService;
     private readonly IUserConfirmationService _userConfirmationService = userConfirmationService;
     private readonly IPasswordResetService _passwordResetService = passwordResetService;
-
+    private readonly IInternalSessionService _internalIdentityService = internalIdentityService;
     public Task<Result<SuccessApiResponse<RegisterResponseDto>>> RegisterAsync(RegisterRequestDto registerRequest, CancellationToken cancellationToken)
         => _internalAuthService.RegisterAsync(registerRequest, cancellationToken);
 
     public Task<Result<SuccessApiResponse<LoginResponseDto>>> LoginAsync(LoginRequestDto loginRequest, CancellationToken cancellationToken)
-        => _internalAuthService.LoginAsync(loginRequest, cancellationToken);
+        => _internalIdentityService.LoginAsync(loginRequest, cancellationToken);
 
     public Task<Result<SuccessApiResponse>> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequest, CancellationToken cancellationToken)
         => _userConfirmationService.ConfirmEmailAsync(confirmEmailRequest, cancellationToken);
@@ -36,11 +37,11 @@ public class InternalAuthFacadeService(
         => _passwordResetService.ResetPasswordAsync(resetPasswordRequest, cancellationToken);
 
     public Task<Result<SuccessApiResponse<RefreshTokenResponseDto>>> RefreshTokenAsync(RefreshTokenRequestDto refreshTokenRequest, string refreshTokenCookie, CancellationToken cancellationToken)
-        => _internalAuthService.RefreshTokenAsync(refreshTokenRequest.UserId, Guid.TryParse(refreshTokenCookie, out var parsed) ? parsed : Guid.Empty, cancellationToken);
+        => _internalIdentityService.RefreshTokenAsync(refreshTokenRequest.UserId, Guid.TryParse(refreshTokenCookie, out var parsed) ? parsed : Guid.Empty, cancellationToken);
     
     public Task<Result<SuccessApiResponse<RegisterResponseDto>>> GuestPromoteAsync(RegisterRequestDto registerRequest, Guid userId, CancellationToken cancellationToken)
         => _internalAuthService.GuestPromoteAsync(registerRequest, userId, cancellationToken);
 
     public Task<Result<SuccessApiResponse<GuestLoginResponseDto>>> GuestLoginAsync(CancellationToken cancellationToken)
-        => _internalAuthService.GuestLoginAsync(cancellationToken);
+        => _internalIdentityService.GuestLoginAsync(cancellationToken);
 }

@@ -23,7 +23,7 @@ public class GuestPromoteRequestValidationTests(CustomWebApplicationFactory fact
         };
 
         // Act: Try to promote without providing an access token
-        var requestMessage = new HttpRequestMessage(HttpMethod.Post, "/api/v1/internal-auth/guest-promote")
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, "/api/v1/internal-auth/promote/guest")
         {
             Content = JsonContent.Create(promoteRequest)
         };

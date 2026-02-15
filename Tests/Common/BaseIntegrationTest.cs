@@ -19,6 +19,9 @@ public abstract class BaseIntegrationTest(CustomWebApplicationFactory factory) :
 
     public virtual async Task InitializeAsync()
     {
+        // Clear test validator configuration
+        TestGoogleAuthValidator.Clear();
+
         // Reset the database and flush Redis using the dedicated providers
         var tasks = new List<Task>();
         tasks.Add(Respawner.ResetAsync());

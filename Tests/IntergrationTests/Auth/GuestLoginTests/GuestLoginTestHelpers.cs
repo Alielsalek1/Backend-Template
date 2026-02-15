@@ -12,7 +12,7 @@ public static class GuestLoginTestHelpers
         PostGuestLoginAsync<TResponse>(HttpClient client)
     {
         // Create request with idempotency key (required for this endpoint)
-        var requestMessage = new HttpRequestMessage(HttpMethod.Post, "/api/v1/internal-auth/guest-login");
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, "/api/v1/internal-auth/login/guest");
         requestMessage.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
         
         var response = await client.SendAsync(requestMessage);

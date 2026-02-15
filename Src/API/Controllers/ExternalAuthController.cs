@@ -4,6 +4,7 @@ using Application.Services.Interfaces;
 using Application.Utils;
 using Asp.Versioning;
 using Domain.Shared;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 /// <summary>
@@ -21,40 +22,49 @@ using Microsoft.AspNetCore.Mvc;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/external-auth")]
-public class ExternalAuthController(IExternalAuthService authService, ILogger<ExternalAuthController> logger) : ControllerBase
+public class ExternalAuthController(IExternalAuthService authService) : ControllerBase
 {
     private readonly IExternalAuthService _authService = authService;
-    private readonly ILogger<ExternalAuthController> _logger = logger;
 
     /// <summary>
     /// Authenticate with Google OAuth2
     /// </summary>
-    [HttpPost("google-login")]
+    [HttpPost("login/google")]
     [ProducesResponseType(typeof(SuccessApiResponse<GoogleAuthResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleAuthRequestDto authRequest, CancellationToken ct)
     {
-        _logger.LogInformation("Processing Google login request");
         var result = await _authService.GoogleLoginAsync(authRequest, ct);
-
         if (result.IsSuccess)
         {
-            _logger.LogInformation("Google login successful for user {UserId}", result.Data.Data.UserId);
-            var refreshToken = result.Data.Data.RefreshToken;
-            Response.Cookies.Append(
-                "refreshToken",
-                refreshToken,
-                new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Strict,
-                    Expires = DateTimeOffset.UtcNow.AddDays(30)
-                }
-            );
+            var newRefreshToken = result.Data.Data.RefreshToken;
+            this.AddRefreshTokenCookie(newRefreshToken);
         }
-
         return this.ToActionResult(result);
     }
+
+    /// <summary>
+    /// Link a Google account to an existing authenticated user
+    /// </summary>
+    [HttpPost("link/google")]
+    [Authorize]
+    [ProducesResponseType(typeof(SuccessApiResponse<GoogleAuthResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> LinkGoogleAccount([FromBody] GoogleAuthRequestDto authRequest, CancellationToken ct)
+    {
+        var userIdResult = this.GetAuthenticatedUserId();
+        if (!userIdResult.IsSuccess)
+        {
+            return this.ToActionResult(Result<SuccessApiResponse<GoogleAuthResponseDto>>.Failure(userIdResult.Error));
+        }
+        var result = await _authService.LinkGoogleAccountAsync(authRequest, userIdResult.Data, ct);
+        if (result.IsSuccess)
+        {
+            var newRefreshToken = result.Data.Data.RefreshToken;
+            this.AddRefreshTokenCookie(newRefreshToken);
+        }
+        return this.ToActionResult(result);
+    }   
 }

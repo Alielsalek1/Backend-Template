@@ -193,7 +193,22 @@ services.AddMassTransit(x => {
 
 ---
 
-### 7. **Validation: FluentValidation**
+### 7. **Guest User Support & Promotion**
+**Why:**
+- Reduces initial barrier to entry for new users
+- Allows capturing user activity before formal registration
+- Enables "Try before you buy" application flows
+- Seamless transition preserves user data/ID during promotion
+
+**Implementation:**
+- `/api/v1/internal-auth/login/guest`: Creates an anonymous user entity with a "Guest" role
+- `/api/v1/internal-auth/promote/guest`: Converts existing guest record to a full internal account
+- `/api/v1/external-auth/link/google`: Links an existing guest session to a Google account, promoting it to an external account
+- Idempotency-Key required for guest creation to prevent duplicate ghost accounts
+
+---
+
+### 8. **Validation: FluentValidation**
 **Why:**
 - Expressive, strongly-typed validation rules
 - Separates validation logic from DTOs

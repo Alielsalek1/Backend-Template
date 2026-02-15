@@ -13,8 +13,9 @@ The forge is designed to provide a robust starting point for modern web applicat
 *   **🔐 Dual-Layer Authentication:** Integrated support for both internal (Email/Password) and external (Google OAuth2) authentication schemes.
 *   **🛡️ Strong Idempotency:** Custom action filters powered by Redis ensure that critical requests (like registration or updates) are resilient to network failures and accidental retries.
 *   **👤 User Management:** Full profile management systems including phone and address updates, email verification, and password recovery.
+*   **🤝 Guest Accommodation:** Support for anonymous guest sessions that can be seamlessly promoted to full accounts or linked to Google OAuth2.
 *   **👁️ Total Observability:** Detailed structured logging across all services and middlewares, integrated with Seq for real-time analysis.
-*   **🧪 Absolute Integration:** A suite of 58+ integration tests that spin up real infrastructure (Postgres, Redis, RabbitMQ) to guarantee system integrity.
+*   **🧪 Absolute Integration:** A suite of 60+ integration tests that spin up real infrastructure (Postgres, Redis, RabbitMQ) to guarantee system integrity.
 
 ---
 
@@ -89,7 +90,8 @@ Infrastructure (Repositories, DbContext)
 - **Extension Methods:** Reusable controller logic (user ID extraction, cookie management)
 
 ### Code Quality & Security:
-- **58 Integration Tests** with Testcontainers (100% pass rate)
+- **60+ Integration Tests** with Testcontainers (100% pass rate)
+- **OAuth2 Testing Sandbox:** Local HTML testers in `test_oauth/` for validating social login and guest promotion flows.
 - **Multi-layered DoS Protection:** Kestrel limits, rate limiting, request size constraints
 - **Structured Logging:** Serilog with Seq integration for observability
 - **Environment Variable Validation:** Fail-fast startup with consolidated error reporting

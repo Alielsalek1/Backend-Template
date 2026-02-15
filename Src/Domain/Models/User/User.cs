@@ -68,4 +68,26 @@ public class User
     {
         Id = guestId;
     }
+    public void PromoteGuestToExternalUser(string email, string username)
+    {
+        if (!IsGuest())
+        {
+            throw new InvalidOperationException("Only guest users can be promoted");
+        }
+
+        UserGuard.ValidateEmail(email);
+        UserGuard.ValidateUsername(username);
+
+        // Use reflection to set init-only properties
+        var emailProperty = typeof(User).GetProperty(nameof(Email));
+        var usernameProperty = typeof(User).GetProperty(nameof(Username));
+        
+        emailProperty?.SetValue(this, email);
+        usernameProperty?.SetValue(this, username);
+        
+        PasswordHash = new string('0', 60);
+        Role = Roles.User;
+        AuthScheme = AuthScheme.External;
+        IsEmailVerified = true;
+    }
 }

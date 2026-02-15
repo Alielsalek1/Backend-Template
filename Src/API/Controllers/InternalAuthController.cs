@@ -13,7 +13,6 @@ namespace API.Controllers;
 
 /// <summary>
 /// Internal Authentication Controller
-/// 
 /// Manages user registration, login, email confirmation, password management, and token refresh.
 /// This controller handles all authentication flows for users registering with email and password.
 /// </summary>
@@ -40,9 +39,15 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
         return this.ToActionResult(result);
     }
 
-    [HttpPost("guest-promote")]
+    /// <summary>
+    /// Promote a guest user to a registered user
+    /// </summary>
+    [HttpPost("promote/guest")]
     [Authorize]
     [Idempotent]
+    [ProducesResponseType(typeof(SuccessApiResponse<RegisterResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GuestPromote(
         [FromBody] RegisterRequestDto registerRequest,
         CancellationToken cancellationToken)
@@ -57,8 +62,13 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
         return this.ToActionResult(result);
     }
 
-    [HttpPost("guest-login")]
+    /// <summary>
+    /// Login as a guest user
+    /// </summary>
+    [HttpPost("login/guest")]
     [Idempotent]
+    [ProducesResponseType(typeof(SuccessApiResponse<GuestLoginResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GuestLogin(CancellationToken cancellationToken)
     {
         var result = await _authFacade.GuestLoginAsync(cancellationToken);

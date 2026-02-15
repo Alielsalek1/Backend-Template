@@ -1,27 +1,24 @@
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using Application.DTOs.Auth;
+using Application.DTOs.ExternalAuth;
 
 namespace Tests.Auth;
 
-public static class GuestPromoteTestHelpers
+public static class LinkGoogleTestHelpers
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     public static async Task<(HttpResponseMessage Response, TResponse? Content, string Json)>
-        PostGuestPromoteAsync<TResponse>(HttpClient client, RegisterRequestDto request, string accessToken)
+        PostLinkGoogleAsync<TResponse>(HttpClient client, GoogleAuthRequestDto request, string accessToken)
     {
-        var requestMessage = new HttpRequestMessage(HttpMethod.Post, "/api/v1/internal-auth/promote/guest")
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, "/api/v1/external-auth/link/google")
         {
             Content = JsonContent.Create(request)
         };
 
         // Add authorization header with the guest user's access token
         requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        
-        // Add idempotency key header (required for this endpoint)
-        requestMessage.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
 
         var response = await client.SendAsync(requestMessage);
         var json = await response.Content.ReadAsStringAsync();

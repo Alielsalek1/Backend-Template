@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Net.Mail;
 using System.Net;
 using MassTransit;
+using Application.Services.Implementations.Auth;
 
 namespace Application;
 
@@ -72,7 +73,8 @@ public static class DependencyInjection
 
         // Auth Services
         services.AddScoped<IPasswordResetService, PasswordResetService>();
-        services.AddScoped<IInternalAuthService, InternalAuthService>();
+        services.AddScoped<IInternalAccountService, InternalAccountService>();
+        services.AddScoped<IInternalSessionService, InternalSessionService>();
         services.AddScoped<IInternalAuthFacadeService, InternalAuthFacadeService>();
         services.AddScoped<IUserConfirmationService, UserConfirmationService>();
         services.AddScoped<IJwtTokenProvider, JwtTokenProvider>();
