@@ -198,9 +198,9 @@ public static class AuthBackdoor
         var connStr = Environment.GetEnvironmentVariable("CONNECTION_STRING");
         if (string.IsNullOrEmpty(connStr)) throw new InvalidOperationException("CONNECTION_STRING environment variable is not set.");
 
-        var refreshToken = Guid.NewGuid().ToString();
+        var refreshToken = GenerateNewRefreshToken();
         var expiry = expiryTime ?? DateTime.UtcNow.AddDays(30);
-        
+
         // Hash the refresh token using SHA256 (matching application logic)
         var refreshTokenHash = HashRefreshToken(refreshToken);
 
@@ -219,6 +219,15 @@ public static class AuthBackdoor
         await cmd.ExecuteNonQueryAsync();
 
         return refreshToken;
+    }
+
+    // Helper to match the service's refresh token generation
+    private static string GenerateNewRefreshToken()
+    {
+        var randomNumber = new byte[32];
+        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
     }
 
     /// <summary>
