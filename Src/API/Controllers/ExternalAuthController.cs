@@ -30,6 +30,7 @@ public class ExternalAuthController(IExternalAuthService authService) : Controll
     /// Authenticate with Google OAuth2
     /// </summary>
     [HttpPost("login/google")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(SuccessApiResponse<GoogleAuthResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status401Unauthorized)]
@@ -48,7 +49,6 @@ public class ExternalAuthController(IExternalAuthService authService) : Controll
     /// Link a Google account to an existing authenticated user
     /// </summary>
     [HttpPost("link/google")]
-    [Authorize]
     [ProducesResponseType(typeof(SuccessApiResponse<GoogleAuthResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status401Unauthorized)]

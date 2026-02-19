@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Application.Constants.ApiErrors;
+using Application.Constants.Successes;
 using Application.DTOs.ExternalAuth;
 using Application.DTOs.User;
 using Application.Repositories.Interfaces;
@@ -73,16 +74,11 @@ public class ExternalAuthService(
         var accessToken = _jwtTokenProvider.GenerateAccessToken(user);
         _logger.LogInformation("Google login successful for user {UserId}", user.Id);
 
-        return Result<SuccessApiResponse<GoogleAuthResponseDto>>.Success(new SuccessApiResponse<GoogleAuthResponseDto>
+        return AuthSuccesses.GoogleAuthenticationSuccessful(new GoogleAuthResponseDto
         {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Google authentication successful.",
-            Data = new GoogleAuthResponseDto
-            {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                UserId = user.Id
-            }
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            UserId = user.Id
         });
     }
     private async Task<Result<GoogleJsonWebSignature.Payload>> ValidateAndGetGooglePayloadAsync(string idToken)
@@ -147,16 +143,11 @@ public class ExternalAuthService(
         var accessToken = _jwtTokenProvider.GenerateAccessToken(user!);
         _logger.LogInformation("Google account linked successfully for user {UserId}", user!.Id);
 
-        return Result<SuccessApiResponse<GoogleAuthResponseDto>>.Success(new SuccessApiResponse<GoogleAuthResponseDto>
+        return AuthSuccesses.GoogleAuthenticationSuccessful(new GoogleAuthResponseDto
         {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Google authentication successful.",
-            Data = new GoogleAuthResponseDto
-            {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                UserId = user.Id
-            }
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            UserId = user.Id
         });
     }
     private async Task<Result<User>> ValidateGoogleAccountLinkingAsync(GoogleJsonWebSignature.Payload payload, User? user, CancellationToken ct)

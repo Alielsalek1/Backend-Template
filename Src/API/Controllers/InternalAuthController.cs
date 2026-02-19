@@ -28,6 +28,7 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     /// </summary>
     [HttpPost("register")]
     [Idempotent]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(SuccessApiResponse<RegisterResponseDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status409Conflict)]
@@ -43,7 +44,6 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     /// Promote a guest user to a registered user
     /// </summary>
     [HttpPost("promote/guest")]
-    [Authorize]
     [Idempotent]
     [ProducesResponseType(typeof(SuccessApiResponse<RegisterResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
@@ -67,6 +67,7 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     /// </summary>
     [HttpPost("login/guest")]
     [Idempotent]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(SuccessApiResponse<GuestLoginResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GuestLogin(CancellationToken cancellationToken)
@@ -81,6 +82,7 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     }
 
     [HttpPost("login")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(SuccessApiResponse<LoginResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status401Unauthorized)]
@@ -108,6 +110,7 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     }
 
     [HttpPost("confirm-login")]
+    [AllowAnonymous]
     public async Task<IActionResult> ConfirmLogin(
         [FromBody] ConfirmLoginRequestDto confirmLoginRequest, 
         CancellationToken cancellationToken)
@@ -126,6 +129,7 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     /// Confirm user email address
     /// </summary>
     [HttpPost("confirm-email")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(SuccessApiResponse<ConfirmEmailResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status404NotFound)]
@@ -148,6 +152,7 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     /// Resend confirmation email
     /// </summary>
     [HttpPost("resend-confirmation-email")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(SuccessApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
@@ -163,6 +168,7 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     /// Request password reset
     /// </summary>
     [HttpPost("forget-password")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(SuccessApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status403Forbidden)]
@@ -176,6 +182,7 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     /// Reset password with token
     /// </summary>
     [HttpPost("reset-password")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(SuccessApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status404NotFound)]
@@ -189,6 +196,7 @@ public class InternalAuthController(IInternalAuthFacadeService authFacade) : Con
     /// Refresh access token
     /// </summary>
     [HttpPost("refresh-token")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(SuccessApiResponse<RefreshTokenResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FailApiResponse), StatusCodes.Status401Unauthorized)]

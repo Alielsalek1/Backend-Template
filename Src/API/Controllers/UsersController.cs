@@ -16,7 +16,6 @@ namespace API.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/users")]
-[Authorize]
 public class UsersController(IUserFacadeService userFacade) : ControllerBase
 {
     private readonly IUserFacadeService _userFacade = userFacade;

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Application.Constants.ApiErrors;
+using Application.Constants.Successes;
 using Application.DTOs.Auth;
 using Application.DTOs.Auth.InternalAuth;
 using Application.DTOs.User;
@@ -47,12 +48,14 @@ public class InternalSessionService(
 
     public async Task<Result<SuccessApiResponse<LoginResponseDto>>> LoginAsync(LoginRequestDto loginRequest, IPAddress ipAddress, Guid deviceId, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Login attempt for user {UsernameOrEmail} from IP {IPAddress}", loginRequest.UsernameOrEmail, ipAddress);
         var user = await GetUserByEmailOrUsernameAsync(loginRequest.UsernameOrEmail, cancellationToken);
         var validationResult = await ValidateLoginRequest(user, loginRequest, ipAddress, cancellationToken);
         if (!validationResult.IsSuccess)
         {
             if (user != null)
             {
+                _logger.LogWarning("Login failed for user {UsernameOrEmail}. Incrementing login attempts.", loginRequest.UsernameOrEmail);
                 int attempts = await _loginThrottlingService.GetUserLoginAttempts(user, ipAddress, cancellationToken) + 1;
                 await _loginThrottlingService.IncrementUserLoginAttempts(user, ipAddress, attempts, cancellationToken);
                 if (_loginThrottlingService.ShouldBeJailed(attempts))
@@ -71,24 +74,21 @@ public class InternalSessionService(
             return await RegisterNewDevice(user, deviceId, cancellationToken);
         }
 
+        _logger.LogInformation("Device recognized for user {UsernameOrEmail}. Proceeding with login.", loginRequest.UsernameOrEmail);
+        _logger.LogInformation("generating refresh token for user {UsernameOrEmail}", loginRequest.UsernameOrEmail);
         var refreshToken = _refreshTokenProvider.GenerateNewRefreshToken();
         await _userRefreshTokensRepository
             .AddUserRefreshTokenAsync(new UserRefreshToken(user.Id, _refreshTokenProvider.HashRefreshToken(refreshToken)), cancellationToken);
 
+        _logger.LogInformation("generating access token for user {UsernameOrEmail}", loginRequest.UsernameOrEmail);
         var accessToken = _jwtTokenProvider.GenerateAccessToken(user!);
-        _logger.LogInformation("User {UsernameOrEmail} logged in successfully", loginRequest.UsernameOrEmail);
 
-        return Result<SuccessApiResponse<LoginResponseDto>>.Success(new SuccessApiResponse<LoginResponseDto>
+        return AuthSuccesses.LoginSuccessful(new LoginResponseDto
         {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Login successful.",
-            Data = new LoginResponseDto
-            {
-                UserId = user!.Id,
-                DeviceId = deviceId,
-                AccessToken = accessToken,
-                RefreshToken = refreshToken
-            }
+            UserId = user!.Id,
+            DeviceId = deviceId,
+            AccessToken = accessToken,
+            RefreshToken = refreshToken
         });
     }
     private async Task<User?> GetUserByEmailOrUsernameAsync(string emailOrUsername, CancellationToken cancellationToken)
@@ -140,17 +140,12 @@ public class InternalSessionService(
         await _otpService.CacheAsync(new NewDeviceOtpPayload(user.Id, deviceId), otp, cancellationToken);
         await _emailService.SendAsync(user.Email!, otp, cancellationToken);
 
-        return Result<SuccessApiResponse<LoginResponseDto>>.Success(
-            new SuccessApiResponse<LoginResponseDto>
-            {
-                StatusCode = StatusCodes.Status202Accepted,
-                Message = "New device detected. A confirmation email has been sent to your email address. Please confirm to complete login."
-            }
-        );
+        return AuthSuccesses.NewDeviceDetected();
     }
 
     public async Task<Result<SuccessApiResponse<LoginResponseDto>>> ConfirmLoginForNewDeviceAsync(ConfirmLoginRequestDto confirmLoginRequest, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Confirming login for new device with OTP {Otp}", confirmLoginRequest.Otp);
         var storedValue = await _otpService.GetDataAsync(confirmLoginRequest.Otp, cancellationToken);
         var userId = storedValue?.UserId ?? Guid.Empty;
         var deviceId = storedValue?.DeviceId ?? Guid.Empty;
@@ -159,6 +154,7 @@ public class InternalSessionService(
             _logger.LogWarning("Login confirmation failed: Invalid or expired token");
             return Result<SuccessApiResponse<LoginResponseDto>>.Failure(AuthErrors.InvalidToken);
         }
+        _logger.LogInformation("getting user from database for login confirmation for new device for user ID {UserId}", userId);
         var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
         if (user == null)
         {
@@ -166,26 +162,23 @@ public class InternalSessionService(
             return Result<SuccessApiResponse<LoginResponseDto>>.Failure(UserErrors.UserNotFound);
         }
 
+        _logger.LogInformation("Adding new device to trusted devices for user ID {UserId}", userId);
         await _userDeviceRepository.AddUserDeviceAsync(new UserDevice(userId, deviceId), cancellationToken);
 
+        _logger.LogInformation("generating refresh token for user ID {UserId} for new device confirmation", userId);
         var refreshToken = _refreshTokenProvider.GenerateNewRefreshToken();
         await _userRefreshTokensRepository
             .AddUserRefreshTokenAsync(new UserRefreshToken(user!.Id, _refreshTokenProvider.HashRefreshToken(refreshToken)), cancellationToken);
 
+        _logger.LogInformation("generating access token for user ID {UserId} for new device confirmation", userId);
         var accessToken = _jwtTokenProvider.GenerateAccessToken(user!);
-        _logger.LogInformation("Login confirmed successfully for user {UserId}", userId);
 
-        return Result<SuccessApiResponse<LoginResponseDto>>.Success(new SuccessApiResponse<LoginResponseDto>
+        return AuthSuccesses.LoginConfirmed(new LoginResponseDto
         {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Login confirmed successfully.",
-            Data = new LoginResponseDto
-            {
-                UserId = user!.Id,
-                DeviceId = deviceId,
-                AccessToken = accessToken,
-                RefreshToken = refreshToken
-            }
+            UserId = user!.Id,
+            DeviceId = deviceId,
+            AccessToken = accessToken,
+            RefreshToken = refreshToken
         });
     }
     private static bool IsNotValidConfirmationToken(Guid userId, Guid deviceId)
@@ -195,26 +188,25 @@ public class InternalSessionService(
 
     public async Task<Result<SuccessApiResponse<GuestLoginResponseDto>>> GuestLoginAsync(CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Initiating guest login process");
         var user = CreateGuestUser();
         await _userRepository.AddUserAsync(user, cancellationToken);
 
+        _logger.LogInformation("generating refresh token for guest user with ID {UserId}", user.Id);
         var refreshToken = _refreshTokenProvider.GenerateNewRefreshToken();
         var userRefreshToken = new UserRefreshToken(user.Id, _refreshTokenProvider.HashRefreshToken(refreshToken));
+
+        _logger.LogInformation("Storing refresh token for guest user with ID {UserId} in database", user.Id);
         await _userRefreshTokensRepository.AddUserRefreshTokenAsync(userRefreshToken, cancellationToken);
         
+        _logger.LogInformation("generating access token for guest user with ID {UserId}", user.Id);
         var accessToken = _jwtTokenProvider.GenerateAccessToken(user);
-        _logger.LogInformation("Guest user created and logged in successfully with user ID {UserId}", user.Id);
         
-        return Result<SuccessApiResponse<GuestLoginResponseDto>>.Success(new SuccessApiResponse<GuestLoginResponseDto>
+        return AuthSuccesses.GuestLoginSuccessful(new GuestLoginResponseDto
         {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Guest login successful.",
-            Data = new GuestLoginResponseDto
-            {
-                UserId = user.Id,
-                AccessToken = accessToken,
-                RefreshToken = refreshToken
-            }
+            UserId = user.Id,
+            AccessToken = accessToken,
+            RefreshToken = refreshToken
         });
     }
     private static User CreateGuestUser()
@@ -224,12 +216,16 @@ public class InternalSessionService(
 
     public async Task<Result<SuccessApiResponse<RefreshTokenResponseDto>>> RefreshTokenAsync(Guid userId, string refreshTokenFromCookie, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Initiating token refresh process for user ID {UserId}", userId);
+        _logger.LogInformation("getting user from database for token refresh for user ID {UserId}", userId);
         var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
         if (user == null)
         {
             _logger.LogWarning("Refresh token failed: User not found for ID {UserId}", userId);
             return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Failure(UserErrors.UserNotFound);
         }
+        
+        _logger.LogInformation("Validating refresh token for user ID {UserId}", userId);
         var refreshTokenFromDb = 
             await _userRefreshTokensRepository
             .GetUserRefreshTokenAsync(userId, _refreshTokenProvider.HashRefreshToken(refreshTokenFromCookie), cancellationToken);
@@ -239,24 +235,21 @@ public class InternalSessionService(
             return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Failure(AuthErrors.InvalidRefreshToken);
         }
 
+        _logger.LogInformation("Marking old refresh token as used for user ID {UserId}", userId);
         await _userRefreshTokensRepository.MarkTokenAsUsedAsync(userId, _refreshTokenProvider.HashRefreshToken(refreshTokenFromCookie), cancellationToken);
 
+        _logger.LogInformation("generating new refresh token for user ID {UserId}", userId);
         var newRefreshToken = _refreshTokenProvider.GenerateNewRefreshToken();
         await _userRefreshTokensRepository
             .AddUserRefreshTokenAsync(new UserRefreshToken(user!.Id, _refreshTokenProvider.HashRefreshToken(newRefreshToken)), cancellationToken);
 
+        _logger.LogInformation("generating new access token for user ID {UserId}", userId);
         var newAccessToken = _jwtTokenProvider.GenerateAccessToken(user!);
-        _logger.LogInformation("Token refreshed successfully for user {UserId}", userId);
 
-        return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Success(new SuccessApiResponse<RefreshTokenResponseDto>
+        return AuthSuccesses.TokenRefreshed(new RefreshTokenResponseDto
         {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Access token refreshed successfully.",
-            Data = new RefreshTokenResponseDto
-            {
-                AccessToken = newAccessToken,
-                RefreshToken = newRefreshToken
-            }
+            AccessToken = newAccessToken,
+            RefreshToken = newRefreshToken
         });
     }
 }

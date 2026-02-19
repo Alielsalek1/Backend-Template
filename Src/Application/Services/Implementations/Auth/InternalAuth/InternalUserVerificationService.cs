@@ -1,4 +1,5 @@
 using Application.Constants.ApiErrors;
+using Application.Constants.Successes;
 using Application.DTOs.Auth;
 using Application.DTOs.Auth.InternalAuth;
 using Application.Repositories.Interfaces;
@@ -31,29 +32,27 @@ public class InternalUserVerificationService(
 
     public async Task<Result<SuccessApiResponse<ConfirmEmailResponseDto>>> ConfirmEmailAsync(ConfirmEmailRequestDto confirmEmailRequest, Guid deviceId, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Initiating email confirmation process for OTP {Otp} and device ID {DeviceId}", confirmEmailRequest.Otp, deviceId);
         var userId = (await _otpService.GetDataAsync(confirmEmailRequest.Otp, cancellationToken))?.UserId ?? Guid.Empty;
         if (userId == Guid.Empty)
         {
             _logger.LogWarning("Email confirmation failed: Invalid OTP");
             return Result<SuccessApiResponse<ConfirmEmailResponseDto>>.Failure(AuthErrors.InvalidToken);
         }
+        _logger.LogInformation("OTP valid, retrieved user ID {UserId} for email confirmation", userId);
         var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
         var validationResult = await ValidateConfirmEmailRequestAsync(user);
         if (!validationResult.IsSuccess)
         {
             return Result<SuccessApiResponse<ConfirmEmailResponseDto>>.Failure(validationResult.Error);
         }
-
+        _logger.LogInformation("Confirming email for user ID {UserId}", userId);
         await _userRepository.ConfirmEmailAsync(user!.Email!, cancellationToken);
-        await TrustDeviceAsync(userId, deviceId, cancellationToken);
-        _logger.LogInformation("Email {Email} confirmed successfully for user ID {UserId}", user.Email, user.Id);
 
-        return Result<SuccessApiResponse<ConfirmEmailResponseDto>>.Success(new SuccessApiResponse<ConfirmEmailResponseDto>
-        {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Email confirmation successful.",
-            Data = new ConfirmEmailResponseDto { DeviceId = deviceId }
-        });
+        _logger.LogInformation("Email confirmed successfully for user ID {UserId}. Trusting device with ID {DeviceId}", userId, deviceId);
+        await TrustDeviceAsync(userId, deviceId, cancellationToken);
+
+        return AuthSuccesses.EmailConfirmed(new ConfirmEmailResponseDto { DeviceId = deviceId });
     }
     private async Task<Result<SuccessApiResponse>> ValidateConfirmEmailRequestAsync(User? user)
     {
@@ -78,7 +77,10 @@ public class InternalUserVerificationService(
 
     public async Task<Result<SuccessApiResponse>> ResendConfirmationEmailAsync(ResendConfirmationEmailRequestDto resendConfirmationEmailRequest, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Initiating resend confirmation email process for email {Email}", resendConfirmationEmailRequest.Email);
         var email = resendConfirmationEmailRequest.Email;
+
+        _logger.LogInformation("Fetching user by email {Email} for resend confirmation email", email);
         var user = await _userRepository.GetUserByEmailAsync(email, cancellationToken);
         var validationResult = await ValidateResendConfirmationEmailRequestAsync(user, cancellationToken);
         if (!validationResult.IsSuccess)
@@ -86,16 +88,14 @@ public class InternalUserVerificationService(
             return validationResult;
         }
 
+        _logger.LogInformation("Generating OTP for email confirmation for resend confirmation email for user ID {UserId}", user!.Id);
         var otp = OtpGenerator.GenerateOtp();
         await _otpService.CacheAsync(new RegistrationOtpPayload(user!.Id), otp, cancellationToken);
-        await _emailService.SendAsync(email, otp, cancellationToken);
-        _logger.LogInformation("Confirmation email resent successfully to {Email}", email);
 
-        return Result<SuccessApiResponse>.Success(new SuccessApiResponse
-        {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Confirmation email resent successfully. Please check your email for the new confirmation code.",
-        });
+        _logger.LogInformation("Sending confirmation email for resend confirmation email to {Email}", email);
+        await _emailService.SendAsync(email, otp, cancellationToken);
+
+        return AuthSuccesses.ConfirmationEmailResent();
     }
     private async Task<Result<SuccessApiResponse>> ValidateResendConfirmationEmailRequestAsync(User? user, CancellationToken cancellationToken)
     {

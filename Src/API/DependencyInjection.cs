@@ -6,8 +6,10 @@ using FluentValidation.AspNetCore;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -73,6 +75,12 @@ public static class DependencyInjection
     {
         services.AddControllers(options =>
         {
+            // authorize all endpoints by default, individual endpoints can override with [AllowAnonymous]
+            var policy = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build();
+            options.Filters.Add(new AuthorizeFilter(policy));
+
             options.Filters.Add<ValidationFilter>();
             
             // Request size limits to prevent DoS attacks

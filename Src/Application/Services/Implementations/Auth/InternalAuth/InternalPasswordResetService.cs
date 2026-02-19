@@ -1,7 +1,6 @@
-using Application.DTOs.Auth;
-using Application.Services.Interfaces;
-using Domain.Shared;
 using Application.Constants.ApiErrors;
+using Application.Constants.Successes;
+using Application.DTOs.Auth;
 using Application.Repositories.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
@@ -14,6 +13,8 @@ using Application.Services.Implementations.Misc;
 using Application.Services.Interfaces.Auth.InternalAuth;
 using Domain.Extensions;
 using Application.DTOs.Auth.InternalAuth;
+using Domain.Shared;
+using Application.Services.Interfaces;
 
 namespace Application.Services.Implementations;
 
@@ -31,6 +32,7 @@ public class InternalPasswordResetService(
 
     public async Task<Result<SuccessApiResponse>> ForgetPasswordAsync(ForgetPasswordRequestDto forgetPasswordRequest, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Initiating forget password process for email {Email}", forgetPasswordRequest.Email);
         var email = forgetPasswordRequest.Email;
         var user = await _userRepository.GetUserByEmailAsync(email, cancellationToken);
         var validationResult = await ValidateForgetPasswordRequestAsync(user, cancellationToken);
@@ -39,16 +41,14 @@ public class InternalPasswordResetService(
             return validationResult;
         }
 
+        _logger.LogInformation("Generating OTP for password reset for user {UserId}", user!.Id);
         var otp = OtpGenerator.GenerateOtp();
         await _otpService.CacheAsync(new PasswordResetOtpPayload(user!.Id), otp, cancellationToken);
-        await _emailService.SendAsync(email, otp, cancellationToken);
-        _logger.LogInformation("Password reset email sent successfully to {Email}", email);
 
-        return Result<SuccessApiResponse>.Success(new SuccessApiResponse
-        {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Password reset email sent successfully. Please check your email for the reset code.",
-        });
+        _logger.LogInformation("Sending password reset email to {Email}", email);
+        await _emailService.SendAsync(email, otp, cancellationToken);
+
+        return AuthSuccesses.PasswordResetEmailSent();
     }
     private async Task<Result<SuccessApiResponse>> ValidateForgetPasswordRequestAsync(User? user, CancellationToken cancellationToken)
     {
@@ -67,12 +67,14 @@ public class InternalPasswordResetService(
 
     public async Task<Result<SuccessApiResponse>> ResetPasswordAsync(ResetPasswordRequestDto resetPasswordRequest, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Initiating password reset process for OTP {Otp}", resetPasswordRequest.Otp);
         var userId = (await _otpService.GetDataAsync(resetPasswordRequest.Otp, cancellationToken))?.UserId ?? Guid.Empty;
         if (userId == Guid.Empty)
         {
             _logger.LogWarning("Password reset failed: Invalid OTP");
             return Result<SuccessApiResponse>.Failure(AuthErrors.InvalidToken);
         }
+        _logger.LogInformation("Fetching user details for user {UserId} ", userId);
         var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
         var validationResult = await ValidateResetPasswordRequestAsync(user, cancellationToken);
         if (!validationResult.IsSuccess)
@@ -80,15 +82,11 @@ public class InternalPasswordResetService(
             return validationResult;
         }
 
+        _logger.LogInformation("Resetting password for user {UserId} in Db", userId);
         var newHashedPassword = BCrypt.Net.BCrypt.HashPassword(resetPasswordRequest.NewPassword, BCrypt.Net.BCrypt.GenerateSalt());
         await _userRepository.UpdatePasswordByEmailAsync(user!.Email!, newHashedPassword, cancellationToken);
-        _logger.LogInformation("Password reset successfully for user {UserId}", userId);
 
-        return Result<SuccessApiResponse>.Success(new SuccessApiResponse
-        {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Password reset successful.",
-        });
+        return AuthSuccesses.PasswordResetSuccessful();
     }
     private async Task<Result<SuccessApiResponse>> ValidateResetPasswordRequestAsync(User? user, CancellationToken cancellationToken)
     {

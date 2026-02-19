@@ -5,6 +5,7 @@ using Domain.Models.User;
 using Domain.Shared;
 using Domain.Enums;
 using Application.Constants.ApiErrors;
+using Application.Constants.Successes;
 using Application.Utils;
 using Application.Repositories.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -31,6 +32,7 @@ public class InternalRegisterationService(
 
     public async Task<Result<SuccessApiResponse<RegisterResponseDto>>> RegisterAsync(RegisterRequestDto registerRequest, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Initiating registration process for email {Email}", registerRequest.Email);
         var user = CreateUserForRegisteration(registerRequest);
         var registrationValidationResult = await ValidateRegisterRequestAsync(user, cancellationToken);
         if (!registrationValidationResult.IsSuccess)
@@ -38,22 +40,19 @@ public class InternalRegisterationService(
             return registrationValidationResult;
         }
 
+        _logger.LogInformation("Creating user in database for email {Email}", registerRequest.Email);
         await _userRepository.AddUserAsync(user, cancellationToken);
-        _logger.LogInformation("User created successfully with email: {Email}", user.Email);
 
+        _logger.LogInformation("generating otp for email confirmation for user {UserId}", user.Id);
         string otp = OtpGenerator.GenerateOtp();
         await _otpService.CacheAsync(new RegistrationOtpPayload(user.Id), otp, cancellationToken);
-        await _emailService.SendAsync(user.Email!, otp, cancellationToken);
-        _logger.LogInformation("Confirmation email sent successfully to {Email}", user.Email);
 
-        return Result<SuccessApiResponse<RegisterResponseDto>>.Success(new SuccessApiResponse<RegisterResponseDto>
+        _logger.LogInformation("Sending confirmation email to {Email}", registerRequest.Email);
+        await _emailService.SendAsync(user.Email!, otp, cancellationToken);
+
+        return AuthSuccesses.RegistrationSuccessful(new RegisterResponseDto
         {
-            StatusCode = StatusCodes.Status201Created,
-            Message = "User registered successfully. Please check your email for the confirmation code.",
-            Data = new RegisterResponseDto
-            {
-                UserId = user.Id
-            }
+            UserId = user.Id
         });
     }
     private static User CreateUserForRegisteration(RegisterRequestDto registerRequest)
@@ -102,6 +101,7 @@ public class InternalRegisterationService(
 
     public async Task<Result<SuccessApiResponse<RegisterResponseDto>>> GuestPromoteAsync(RegisterRequestDto registerRequest, Guid userId, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Initiating guest promotion process for user {UserId} with email {Email}", userId, registerRequest.Email);
         var user = CreateUserForRegisteration(registerRequest);
         user.SetGuestId(userId);
         var validateGuestPromototionRequestAsyncResult = await ValidateGuestPromoteRequestAsync(user, cancellationToken);
@@ -110,22 +110,19 @@ public class InternalRegisterationService(
             return validateGuestPromototionRequestAsyncResult;
         }
 
+        _logger.LogInformation("Updating user {UserId} in database for guest promotion", userId);
         await _userRepository.UpdateUserAsync(user, cancellationToken);
-        _logger.LogInformation("User promoted successfully with email: {Email}", user.Email);
 
+        _logger.LogInformation("Generating OTP for email confirmation for guest promotion for user {UserId}", userId);
         var otp = OtpGenerator.GenerateOtp();
         await _otpService.CacheAsync(new RegistrationOtpPayload(user.Id), otp, cancellationToken);
-        await _emailService.SendAsync(user.Email!, otp, cancellationToken);
-        _logger.LogInformation("Confirmation email sent successfully to {Email}", user.Email);
 
-        return Result<SuccessApiResponse<RegisterResponseDto>>.Success(new SuccessApiResponse<RegisterResponseDto>
+        _logger.LogInformation("Sending confirmation email for guest promotion to {Email}", registerRequest.Email);
+        await _emailService.SendAsync(user.Email!, otp, cancellationToken);
+
+        return AuthSuccesses.RegistrationSuccessful(new RegisterResponseDto
         {
-            StatusCode = StatusCodes.Status201Created,
-            Message = "User registered successfully. Please check your email for the confirmation code.",
-            Data = new RegisterResponseDto
-            {
-                UserId = user.Id
-            }
+            UserId = user.Id
         });
     }
     private async Task<Result<SuccessApiResponse<RegisterResponseDto>>> ValidateGuestPromoteRequestAsync(User user, CancellationToken cancellationToken)

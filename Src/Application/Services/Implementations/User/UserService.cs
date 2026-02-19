@@ -1,4 +1,5 @@
 using Application.Constants.ApiErrors;
+using Application.Constants.Successes;
 using Application.DTOs.User;
 using Application.Repositories.Interfaces;
 using Application.Services.Interfaces;
@@ -11,7 +12,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Application.Services.Implementations;
 
-public class UserService(IUserRepository userRepo, IRefreshTokenProvider tokenProvider, ILogger<UserService> logger) : IUserService
+public class UserService(IUserRepository userRepo, ILogger<UserService> logger) : IUserService
 {
     private readonly IUserRepository _userRepository = userRepo;
     private readonly ILogger<UserService> _logger = logger;
@@ -31,11 +32,7 @@ public class UserService(IUserRepository userRepo, IRefreshTokenProvider tokenPr
         await _userRepository.UpdateUserAsync(user, ct);
         _logger.LogInformation("Profile updated successfully for user {UserId}", userId);
 
-        return Result<SuccessApiResponse>.Success(new SuccessApiResponse
-        {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Profile updated successfully."
-        });
+        return UserSuccesses.ProfileUpdated();
     }
     private async Task<Result<SuccessApiResponse>> ValidateUpdateProfileRequestAsync(
         User? user, 
@@ -73,18 +70,13 @@ public class UserService(IUserRepository userRepo, IRefreshTokenProvider tokenPr
         }
         _logger.LogInformation("Profile fetched successfully for user {UserId}", userId);
 
-        return Result<SuccessApiResponse<GetUserProfileResponseDto>>.Success(new SuccessApiResponse<GetUserProfileResponseDto>
+        return UserSuccesses.ProfileFetched(new GetUserProfileResponseDto
         {
-            StatusCode = StatusCodes.Status200OK,
-            Message = "Profile fetched successfully.",
-            Data = new GetUserProfileResponseDto
-            {
-                Id = user!.Id,
-                Email = user!.Email,
-                Username = user!.Username,
-                PhoneNumber = user!.PhoneNumber ?? string.Empty,
-                Address = user!.Address ?? string.Empty,
-            }
+            Id = user!.Id,
+            Email = user!.Email!,
+            Username = user!.Username!,
+            PhoneNumber = user!.PhoneNumber ?? string.Empty,
+            Address = user!.Address ?? string.Empty
         });
     }
 }
