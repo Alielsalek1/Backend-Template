@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Application.DTOs.Auth;
 using Application.Utils;
 using Microsoft.Extensions.Caching.Distributed;
@@ -96,7 +97,7 @@ public class DeviceConfirmationTests(CustomWebApplicationFactory factory) : Base
         
         // Seed new_device token in Redis
         var token = "123456";
-        var storedValue = $"{userId}:{deviceId}";
+        var storedValue = JsonSerializer.Serialize(new Application.DTOs.Auth.InternalAuth.NewDeviceOtpPayload(userId, deviceId), new JsonSerializerOptions(JsonSerializerDefaults.Web));
         await Cache.SetStringAsync($"new_device:{token}", storedValue, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
@@ -160,7 +161,7 @@ public class DeviceConfirmationTests(CustomWebApplicationFactory factory) : Base
         var userId = Guid.NewGuid();
         var deviceId = Guid.NewGuid();
         var token = "expired-token";
-        var storedValue = $"{userId}:{deviceId}";
+        var storedValue = JsonSerializer.Serialize(new Application.DTOs.Auth.InternalAuth.NewDeviceOtpPayload(userId, deviceId), new JsonSerializerOptions(JsonSerializerDefaults.Web));
         
         await Cache.SetStringAsync($"new_device:{token}", storedValue, new DistributedCacheEntryOptions
         {

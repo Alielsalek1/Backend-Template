@@ -44,24 +44,6 @@ public class OtpService<T>(
         }
         catch (JsonException) { }
 
-        // Legacy format (plain text in tests)
-        if (typeof(T) == typeof(RegistrationOtpPayload) && Guid.TryParse(cachedValue, out var regUserId))
-        {
-            return (new RegistrationOtpPayload(regUserId) as T)!;
-        }
-        if (typeof(T) == typeof(PasswordResetOtpPayload) && Guid.TryParse(cachedValue, out var pwdUserId))
-        {
-            return (new PasswordResetOtpPayload(pwdUserId) as T)!;
-        }
-        if (typeof(T) == typeof(NewDeviceOtpPayload))
-        {
-            var parts = cachedValue.Split(':');
-            if (parts.Length == 2 && Guid.TryParse(parts[0], out var dUserId) && Guid.TryParse(parts[1], out var dDeviceId))
-            {
-                return (new NewDeviceOtpPayload(dUserId, dDeviceId) as T)!;
-            }
-        }
-
         return default!;
     }
 

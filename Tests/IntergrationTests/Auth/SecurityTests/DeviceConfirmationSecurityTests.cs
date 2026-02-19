@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Application.DTOs.Auth;
 using Application.Utils;
 using Microsoft.Extensions.Caching.Distributed;
@@ -24,7 +25,7 @@ public class DeviceConfirmationSecurityTests(CustomWebApplicationFactory factory
         
         // Seed confirmation token for user1 with device1
         var token = "user1token";
-        var storedValue = $"{user1Id}:{device1Id}";
+        var storedValue = JsonSerializer.Serialize(new Application.DTOs.Auth.InternalAuth.NewDeviceOtpPayload(user1Id, device1Id), new JsonSerializerOptions(JsonSerializerDefaults.Web));
         await Cache.SetStringAsync($"new_device:{token}", storedValue, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
@@ -53,7 +54,7 @@ public class DeviceConfirmationSecurityTests(CustomWebApplicationFactory factory
         var deviceId = Guid.NewGuid();
         
         var token = "expiredtoken";
-        var storedValue = $"{userId}:{deviceId}";
+        var storedValue = JsonSerializer.Serialize(new Application.DTOs.Auth.InternalAuth.NewDeviceOtpPayload(userId, deviceId), new JsonSerializerOptions(JsonSerializerDefaults.Web));
         await Cache.SetStringAsync($"new_device:{token}", storedValue, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(1)
@@ -83,7 +84,7 @@ public class DeviceConfirmationSecurityTests(CustomWebApplicationFactory factory
         var deviceId = Guid.NewGuid();
         
         var token = "reusabletoken";
-        var storedValue = $"{userId}:{deviceId}";
+        var storedValue = JsonSerializer.Serialize(new Application.DTOs.Auth.InternalAuth.NewDeviceOtpPayload(userId, deviceId), new JsonSerializerOptions(JsonSerializerDefaults.Web));
         await Cache.SetStringAsync($"new_device:{token}", storedValue, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
@@ -148,7 +149,7 @@ public class DeviceConfirmationSecurityTests(CustomWebApplicationFactory factory
         var deviceId = Guid.NewGuid();
         
         var token = "dbcheck";
-        var storedValue = $"{userId}:{deviceId}";
+        var storedValue = JsonSerializer.Serialize(new Application.DTOs.Auth.InternalAuth.NewDeviceOtpPayload(userId, deviceId), new JsonSerializerOptions(JsonSerializerDefaults.Web));
         await Cache.SetStringAsync($"new_device:{token}", storedValue, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)

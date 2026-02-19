@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -75,7 +76,8 @@ public static class AuthBackdoor
         var cache = scope.ServiceProvider.GetRequiredService<IDistributedCache>();
         
         var key = $"new_user:{token}";
-        await cache.SetStringAsync(key, userId.ToString(), new DistributedCacheEntryOptions
+        var json = JsonSerializer.Serialize(new Application.DTOs.Auth.InternalAuth.RegistrationOtpPayload(userId), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        await cache.SetStringAsync(key, json, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(ttlSeconds)
         });
@@ -91,7 +93,8 @@ public static class AuthBackdoor
         var cache = scope.ServiceProvider.GetRequiredService<IDistributedCache>();
         
         var key = $"reset_password:{token}";
-        await cache.SetStringAsync(key, userId.ToString(), new DistributedCacheEntryOptions
+        var json = JsonSerializer.Serialize(new Application.DTOs.Auth.InternalAuth.PasswordResetOtpPayload(userId), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        await cache.SetStringAsync(key, json, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(ttlSeconds)
         });
@@ -107,8 +110,8 @@ public static class AuthBackdoor
         var cache = scope.ServiceProvider.GetRequiredService<IDistributedCache>();
         
         var key = $"new_device:{token}";
-        var value = $"{userId}:{deviceId}";
-        await cache.SetStringAsync(key, value, new DistributedCacheEntryOptions
+        var json = JsonSerializer.Serialize(new Application.DTOs.Auth.InternalAuth.NewDeviceOtpPayload(userId, deviceId), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        await cache.SetStringAsync(key, json, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(ttlSeconds)
         });
