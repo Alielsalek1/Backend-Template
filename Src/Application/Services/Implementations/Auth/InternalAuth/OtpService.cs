@@ -1,8 +1,6 @@
-using System.Security.Cryptography;
 using System.Text.Json;
 using Application.Services.Interfaces.Auth.InternalAuth;
 using Microsoft.Extensions.Caching.Distributed;
-using Application.DTOs.Auth.InternalAuth;
 
 namespace Application.Services.Implementations.Auth.InternalAuth;
 

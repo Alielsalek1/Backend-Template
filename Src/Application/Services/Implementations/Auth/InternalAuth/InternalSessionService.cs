@@ -1,7 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 using Application.Constants.ApiErrors;
 using Application.Constants.Successes;
 using Application.DTOs.Auth;
@@ -18,8 +15,6 @@ using Domain.Models.User;
 using Domain.Models.UserDevice;
 using Domain.Models.UserRefreshTokens;
 using Domain.Shared;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Hangfire;
 
@@ -67,7 +62,7 @@ public class InternalSessionService(
                     _logger.LogWarning("User {UsernameOrEmail} has been jailed due to too many failed login attempts from IP {IPAddress}", loginRequest.UsernameOrEmail, ipAddress);
                 }
             }
-            _logger.LogWarning("Login failed for user {UsernameOrEmail}: {ErrorMessage}", loginRequest.UsernameOrEmail, validationResult.Error.message);            
+            _logger.LogWarning("Login failed for user {UsernameOrEmail}: {ErrorMessage}", loginRequest.UsernameOrEmail, validationResult.Error.message);
             return validationResult;
         }
 
@@ -201,10 +196,10 @@ public class InternalSessionService(
 
         _logger.LogInformation("Storing refresh token for guest user with ID {UserId} in database", user.Id);
         await _userRefreshTokensRepository.AddUserRefreshTokenAsync(userRefreshToken, cancellationToken);
-        
+
         _logger.LogInformation("generating access token for guest user with ID {UserId}", user.Id);
         var accessToken = _jwtTokenProvider.GenerateAccessToken(user);
-        
+
         return AuthSuccesses.GuestLoginSuccessful(new GuestLoginResponseDto
         {
             UserId = user.Id,
@@ -227,9 +222,9 @@ public class InternalSessionService(
             _logger.LogWarning("Refresh token failed: User not found for ID {UserId}", userId);
             return Result<SuccessApiResponse<RefreshTokenResponseDto>>.Failure(UserErrors.UserNotFound);
         }
-        
+
         _logger.LogInformation("Validating refresh token for user ID {UserId}", userId);
-        var refreshTokenFromDb = 
+        var refreshTokenFromDb =
             await _userRefreshTokensRepository
             .GetUserRefreshTokenAsync(userId, _refreshTokenProvider.HashRefreshToken(refreshTokenFromCookie), cancellationToken);
         var validationResult = _refreshTokenProvider.IsInvalidRefreshToken(refreshTokenFromDb, refreshTokenFromCookie);
