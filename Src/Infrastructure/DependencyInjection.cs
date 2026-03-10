@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MassTransit;
 using Microsoft.Extensions.Options;
 using Infrastructure.Common.Options;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 
 namespace Infrastructure;
 
@@ -48,14 +49,14 @@ public static class DependencyInjection
 
     private static IServiceCollection AddCaching(this IServiceCollection services)
     {
-        using var sp = services.BuildServiceProvider();
-        var redisOptions = sp.GetRequiredService<IOptions<RedisOptions>>().Value;
+        services.AddStackExchangeRedisCache(options => { });
+        services.AddOptions<RedisCacheOptions>()
+            .PostConfigure<IOptions<RedisOptions>>((options, redisOptions) =>
+            {
+                options.Configuration = redisOptions.Value.ConnectionString;
+                options.InstanceName = redisOptions.Value.InstanceName;
+            });
 
-        services.AddStackExchangeRedisCache(options =>
-        {
-            options.Configuration = redisOptions.ConnectionString;
-            options.InstanceName = redisOptions.InstanceName;
-        });
         return services;
     }
 
