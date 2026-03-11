@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Threading.RateLimiting;
 using Hangfire;
@@ -49,25 +48,23 @@ public static class DependencyInjection
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
             options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
         })
-        .AddJwtBearer(options =>
-        {
-            // We need to use a post-configure or similar to access IOptions during setup if we don't want to use sp here
-            // but for simplicity in Program.cs we could just use a temporary sp or just bind it here
-            var sp = services.BuildServiceProvider();
-            var jwtOptions = sp.GetRequiredService<IOptions<JwtOptions>>().Value;
+        .AddJwtBearer(options => { });
 
-            options.TokenValidationParameters = new TokenValidationParameters
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .PostConfigure<IOptions<JwtOptions>>((options, jwtOptions) =>
             {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = jwtOptions.Issuer,
-                ValidAudience = jwtOptions.Audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
-                ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
-            };
-        });
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = jwtOptions.Value.Issuer,
+                    ValidAudience = jwtOptions.Value.Audience,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Value.Key)),
+                    ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
+                };
+            });
 
         services.AddAuthorization();
         return services;
@@ -165,14 +162,16 @@ public static class DependencyInjection
 
     private static IServiceCollection AddHangfireConfiguration(this IServiceCollection services)
     {
-        var sp = services.BuildServiceProvider();
-        var dbOptions = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value;
-
-        services.AddHangfire(configuration => configuration
-            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
-            .UseSimpleAssemblyNameTypeSerializer()
-            .UseRecommendedSerializerSettings()
-            .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(dbOptions.ConnectionString)));
+        services.AddHangfire((serviceProvider, configuration) => 
+        {
+            var dbOptions = serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+            
+            configuration
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(dbOptions.ConnectionString));
+        });
 
         services.AddHangfireServer();
         return services;

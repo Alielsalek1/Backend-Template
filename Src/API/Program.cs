@@ -113,6 +113,20 @@ try
         ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
     });
 
+    app.MapHealthChecks("/health/auth", new HealthCheckOptions
+    {
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            var response = new
+            {
+                Status = report.Status.ToString(),
+                Message = "Authenticated"
+            };
+            await context.Response.WriteAsJsonAsync(response);
+        }
+    }).RequireAuthorization();
+
     await app.RunAsync();
 }
 catch (Exception ex)

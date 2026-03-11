@@ -57,6 +57,12 @@ public class OtpService<T>(
         return string.Equals(payloadJson, cachedValue, StringComparison.Ordinal);
     }
 
+    public async Task InvalidateAsync(string otp, CancellationToken cancellationToken)
+    {
+        var key = BuildKey(_strategy.KeyPrefix, otp);
+        await _cache.RemoveAsync(key, cancellationToken);
+    }
+
     private static string BuildKey(string prefix, string otp)
     {
         return $"{prefix}{otp}";

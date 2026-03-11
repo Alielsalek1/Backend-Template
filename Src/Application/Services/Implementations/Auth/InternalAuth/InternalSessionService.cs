@@ -160,8 +160,16 @@ public class InternalSessionService(
             return Result<SuccessApiResponse<LoginResponseDto>>.Failure(UserErrors.UserNotFound);
         }
 
-        _logger.LogInformation("Adding new device to trusted devices for user ID {UserId}", userId);
-        await _userDeviceRepository.AddUserDeviceAsync(new UserDevice(userId, deviceId), cancellationToken);
+        var isDeviceAlreadyPresent = await _userDeviceRepository.IsDeviceIdPresentForUserId(deviceId, userId, cancellationToken);
+        if (!isDeviceAlreadyPresent)
+        {
+            _logger.LogInformation("Adding new device to trusted devices for user ID {UserId}", userId);
+            await _userDeviceRepository.AddUserDeviceAsync(new UserDevice(userId, deviceId), cancellationToken);
+        }
+        else
+        {
+            _logger.LogInformation("Device {DeviceId} already trusted for user ID {UserId}, skipping addition", deviceId, userId);
+        }
 
         _logger.LogInformation("generating refresh token for user ID {UserId} for new device confirmation", userId);
         var refreshToken = _refreshTokenProvider.GenerateNewRefreshToken();
@@ -170,6 +178,10 @@ public class InternalSessionService(
 
         _logger.LogInformation("generating access token for user ID {UserId} for new device confirmation", userId);
         var accessToken = _jwtTokenProvider.GenerateAccessToken(user!);
+
+        // Invalidate the OTP to prevent reuse
+        await _otpService.InvalidateAsync(confirmLoginRequest.Otp, cancellationToken);
+        _logger.LogInformation("Invalidated OTP for user ID {UserId} after successful device confirmation", userId);
 
         return AuthSuccesses.LoginConfirmed(new LoginResponseDto
         {

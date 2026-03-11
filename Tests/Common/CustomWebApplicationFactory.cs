@@ -51,6 +51,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
 
     public new async Task DisposeAsync()
     {
+        await base.DisposeAsync();
+
         if (_orchestrator != null) await _orchestrator.DisposeAsync();
     }
 
